@@ -1,0 +1,52 @@
+pub mod errors;
+pub mod network;
+pub mod security;
+pub mod server;
+pub mod storage;
+
+use std::sync::Arc;
+
+use server::{AppConfig, AppState, DesktopState};
+
+#[tauri::command]
+async fn get_desktop_state(state: tauri::State<'_, Arc<AppState>>) -> Result<DesktopState, String> {
+    state.desktop_state().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn refresh_session(state: tauri::State<'_, Arc<AppState>>) -> Result<DesktopState, String> {
+    state.refresh_session().map_err(|error| error.to_string())?;
+    state.desktop_state().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn open_receive_folder(state: tauri::State<'_, Arc<AppState>>) -> Result<(), String> {
+    let path = state.config().receive_dir.clone();
+    open::that(path).map_err(|error| format!("Could not open receive folder: {error}"))
+}
+
+pub fn run() {
+    tauri::Builder::default()
+        .setup(|app| {
+            let config = AppConfig::load()?;
+            let state = Arc::new(AppState::new(config)?);
+            state.set_app_handle(app.handle().clone());
+
+            let server_state = Arc::clone(&state);
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = server::start(server_state).await {
+                    eprintln!("DropLite local server stopped: {error}");
+                }
+            });
+
+            app.manage(state);
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            get_desktop_state,
+            refresh_session,
+            open_receive_folder
+        ])
+        .run(tauri::generate_context!())
+        .expect("failed to run DropLite");
+}
