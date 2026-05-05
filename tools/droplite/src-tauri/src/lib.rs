@@ -26,7 +26,7 @@ async fn open_receive_folder(state: tauri::State<'_, Arc<AppState>>) -> Result<(
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    let result = tauri::Builder::default()
         .setup(|app| {
             let config = AppConfig::load()?;
             let state = Arc::new(AppState::new(config)?);
@@ -47,6 +47,10 @@ pub fn run() {
             refresh_session,
             open_receive_folder
         ])
-        .run(tauri::generate_context!())
-        .expect("failed to run DropLite");
+        .run(tauri::generate_context!());
+
+    if let Err(error) = result {
+        eprintln!("failed to run DropLite: {error}");
+        std::process::exit(1);
+    }
 }
