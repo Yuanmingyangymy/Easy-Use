@@ -15,9 +15,12 @@ Product screenshots will be added after the first packaged preview build. The MV
 - Detects the local LAN IP and shows a QR code for the phone.
 - Phone opens a browser upload page without installing an app.
 - Sends text, images, and files from phone to desktop.
+- Provides separate phone entry points for text, photos, videos, and files.
 - Saves received files to the user's Downloads/DropLite folder by default.
+- Names received files by type and receive time, such as `image-20260506-225801-001.jpg`.
 - Shows received text immediately and provides copy action.
 - Shows image thumbnails in the desktop receive list.
+- Supports English and Simplified Chinese UI.
 - Uses a random session token with a default 10-minute expiry.
 - Does not use accounts, cloud services, telemetry, ads, or transfer history.
 
@@ -28,6 +31,7 @@ Supported:
 - Phone to desktop transfer.
 - Text upload.
 - Image upload.
+- Video upload.
 - File upload.
 - Drag-and-drop upload where the mobile browser supports it.
 - Paste text on the phone page.
@@ -81,7 +85,7 @@ Install dependencies:
 npm install
 ```
 
-Run the desktop app in development:
+Run the desktop app in development. This mode is for contributors and debugging:
 
 ```bash
 npm run tauri:dev
@@ -104,8 +108,14 @@ npm run build
 Build the Tauri app:
 
 ```bash
-npm run tauri:build
+npm run tauri build
 ```
+
+Local builds generate installable or runnable desktop artifacts under `src-tauri/target/release/bundle/`. The exact installer path depends on the platform and Tauri CLI output.
+
+Current local builds are not code signed and are not official releases. On Windows, the first run may show a security warning, and the firewall may ask whether to allow local network access. For DropLite's LAN workflow, allow private network access only on trusted networks.
+
+Do not commit build outputs from `dist/`, `build/`, `target/`, or installer folders.
 
 ## Tests
 
@@ -128,7 +138,23 @@ Run frontend type checks:
 npm run typecheck
 ```
 
-The Rust tests cover token generation, token validation, token expiry, filename sanitization, unique save path behavior, and upload size limits.
+The Rust tests cover token generation, token validation, token expiry, timestamp-based filename generation, filename sanitization, unique save path behavior, received item kinds, and upload size limits.
+
+## Language
+
+DropLite currently supports English and Simplified Chinese. The desktop app follows the system or browser language by default, falls back to English, and lets the user switch language in the header. The selected language is stored locally in `localStorage`.
+
+The QR code includes a `lang` parameter so the phone upload page follows the desktop language. The phone page also has a small language selector.
+
+## File Naming
+
+DropLite uses receive-time names by default:
+
+- `image-YYYYMMDD-HHMMSS-001.jpg`
+- `video-YYYYMMDD-HHMMSS-001.mp4`
+- `file-YYYYMMDD-HHMMSS-001.pdf`
+
+The prefix comes from MIME type or extension. The extension is taken from the original filename when reliable, then inferred from MIME type, then falls back to `.bin`. If multiple files arrive in the same second, DropLite increments the sequence and never overwrites existing files.
 
 ## Manual Acceptance
 
@@ -177,6 +203,10 @@ Turn off VPNs on the phone and computer, then try again.
 On Windows, confirm the current Wi-Fi is set to Private network. If Windows Firewall asks whether to allow DropLite, allow access for private networks. Do not switch a public or untrusted Wi-Fi to Private just to use DropLite.
 
 DropLite 0.1 uses local-network HTTP, so it is not recommended on public or untrusted Wi-Fi.
+
+### Why does Send photo or Send video still open a file manager on my phone?
+
+DropLite uses standard browser file inputs. `Send photo` uses `accept="image/*"` and `Send video` uses `accept="video/*"`, which usually opens a gallery or media picker. Some browsers, embedded webviews, or chat-app browsers may still show a file manager. That behavior is controlled by the browser and operating system.
 
 ## Roadmap
 

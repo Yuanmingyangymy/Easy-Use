@@ -5,7 +5,11 @@
 - QR connection flow.
 - Temporary session token.
 - Phone browser upload page.
-- Text, image, and file upload.
+- Text, image, video, and file upload.
+- Separate phone choices for text, photos, videos, and files.
+- English and Simplified Chinese UI.
+- Timestamp-based received filenames.
+- Image previews in the desktop receive list.
 - Local receive directory.
 - Basic desktop receive list.
 - Honest local HTTP security model.
@@ -32,6 +36,15 @@
 
 - More complete Windows, macOS, and Linux packaging.
 - Release checklist and signed build guidance where practical.
+- Optional code signing.
+- GitHub Release packaging.
+- Optional auto-update after a release process exists.
+
+## Later Product Polish
+
+- More complete settings page.
+- Optional setting to preserve original filenames.
+- Better thumbnail generation for very large images.
 
 ## 0.6 Optional End-to-End Encryption
 

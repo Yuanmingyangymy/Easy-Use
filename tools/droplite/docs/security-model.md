@@ -68,6 +68,18 @@ Avoid using this MVP on:
 
 The phone sends data directly to the local HTTP server running on the receiving computer. The QR code points to a local IP address and port. There is no remote API endpoint in the MVP.
 
+## Image Preview Access
+
+Image thumbnails are loaded through a local DropLite preview route, not by exposing arbitrary local filesystem paths to the WebView. The route requires the current session token, looks up the requested item in the in-memory received list, and verifies the canonical file path stays inside the DropLite receive directory.
+
+This means the preview route is limited to files the current DropLite session already received. It is not a general file browser.
+
+## Local Build Boundary
+
+A locally built DropLite app has the same security model as development mode: local-network HTTP, temporary token, no cloud, and no account. Local builds are not automatically safer than development builds.
+
+Current local builds are not code signed. Windows may show a security warning, and Windows Firewall may ask for network permission. Allow private network access only on trusted networks.
+
 ## Future Security Improvements
 
 Potential upgrades:
