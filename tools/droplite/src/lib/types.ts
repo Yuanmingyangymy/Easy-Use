@@ -16,6 +16,7 @@ export interface SessionView {
   connection_url: string;
   device_name: string;
   expires_at: number;
+  is_ready: boolean;
   local_ip: string;
   max_upload_bytes: number;
   port: number;

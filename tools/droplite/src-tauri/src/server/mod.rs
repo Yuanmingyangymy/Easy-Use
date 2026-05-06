@@ -40,6 +40,7 @@ pub struct SessionView {
     pub connection_url: String,
     pub device_name: String,
     pub expires_at: u64,
+    pub is_ready: bool,
     pub local_ip: String,
     pub max_upload_bytes: u64,
     pub port: u16,
@@ -224,6 +225,7 @@ impl AppState {
 
     pub fn session_view(&self) -> Result<SessionView, AppError> {
         let session = self.session_snapshot()?;
+        let is_ready = session.port != 0;
         let connection_url = format!(
             "http://{}:{}/?token={}",
             self.config.local_ip, session.port, session.token
@@ -233,6 +235,7 @@ impl AppState {
             connection_url,
             device_name: self.config.device_name.clone(),
             expires_at: session.expires_at,
+            is_ready,
             local_ip: self.config.local_ip.clone(),
             max_upload_bytes: self.config.max_upload_bytes,
             port: session.port,
@@ -270,10 +273,16 @@ pub async fn start(state: Arc<AppState>) -> Result<(), AppError> {
     let listener = TcpListener::bind(("0.0.0.0", 0)).await?;
     let port = listener.local_addr()?.port();
     state.set_port(port)?;
+    debug_log(&format!("local server listening on port {port}"));
 
     let router = routes::router(Arc::clone(&state));
     axum::serve(listener, router).await?;
     Ok(())
+}
+
+pub fn debug_log(message: &str) {
+    #[cfg(debug_assertions)]
+    eprintln!("[droplite] {message}");
 }
 
 pub fn now_epoch_secs() -> u64 {

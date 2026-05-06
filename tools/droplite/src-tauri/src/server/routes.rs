@@ -17,8 +17,11 @@ use crate::{
 };
 
 use super::{
-    now_epoch_secs,
-    upload::{ensure_upload_size, rename_complete_upload, LimitedFileWriter, TempFileGuard},
+    debug_log, now_epoch_secs,
+    upload::{
+        ensure_receive_dir, ensure_upload_size, rename_complete_upload, LimitedFileWriter,
+        TempFileGuard,
+    },
     AppState, ReceivedItem, ReceivedKind,
 };
 
@@ -138,8 +141,10 @@ async fn upload_file(
     Query(query): Query<AuthQuery>,
     mut multipart: Multipart,
 ) -> Result<Json<UploadResponse>, AppError> {
+    debug_log("upload request received");
     let token = query.token.as_deref().ok_or(AppError::TokenInvalid)?;
     state.validate_token(token)?;
+    debug_log("upload token validated");
 
     let mut received_items = Vec::new();
 
@@ -150,6 +155,7 @@ async fn upload_file(
     {
         let item = save_upload_field(&state, &mut field).await?;
         state.add_received(item.clone())?;
+        debug_log("received item emitted");
         received_items.push(item);
     }
 
@@ -167,8 +173,14 @@ async fn save_upload_field(
     state: &Arc<AppState>,
     field: &mut axum::extract::multipart::Field<'_>,
 ) -> Result<ReceivedItem, AppError> {
+    ensure_receive_dir(&state.config().receive_dir).await?;
     let original_name = field.file_name().map(|value| value.to_string());
     let content_type = field.content_type().map(|value| value.to_string());
+    debug_log(&format!(
+        "multipart field received: filename={}, content_type={}",
+        original_name.as_deref().unwrap_or("<missing>"),
+        content_type.as_deref().unwrap_or("<missing>")
+    ));
     let received_at = now_epoch_secs();
     let target_path = unique_upload_path(
         &state.config().receive_dir,
@@ -184,6 +196,14 @@ async fn save_upload_field(
     let temp_path = unique_temp_path(&state.config().receive_dir);
     let mut temp_guard = TempFileGuard::new(temp_path);
     let mut output = LimitedFileWriter::create(temp_guard.path().to_path_buf()).await?;
+    debug_log(&format!(
+        "temp file created: {}",
+        temp_guard
+            .path()
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("<unknown>")
+    ));
     let mut total_size = 0_u64;
 
     loop {
@@ -209,6 +229,7 @@ async fn save_upload_field(
     }
 
     let written_size = output.finish().await?;
+    debug_log(&format!("upload bytes written: {written_size}"));
     if written_size != total_size {
         return Err(AppError::Io(std::io::Error::new(
             std::io::ErrorKind::WriteZero,
@@ -216,8 +237,10 @@ async fn save_upload_field(
         )));
     }
 
+    debug_log(&format!("final filename resolved: {display_name}"));
     rename_complete_upload(temp_guard.path(), &target_path).await?;
     temp_guard.keep();
+    debug_log("temp file renamed to final file");
 
     let saved_size = fs::metadata(&target_path).await?.len();
     if saved_size != written_size {
@@ -241,7 +264,7 @@ async fn save_upload_field(
         None
     };
 
-    Ok(ReceivedItem {
+    let item = ReceivedItem {
         id,
         kind,
         name: target_path
@@ -255,7 +278,9 @@ async fn save_upload_field(
         size: Some(saved_size),
         mime,
         received_at,
-    })
+    };
+    debug_log("received item ready to emit");
+    Ok(item)
 }
 
 fn received_kind_for(mime: Option<&str>, path: &std::path::Path) -> ReceivedKind {
@@ -474,6 +499,12 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
       const languageSelect = document.getElementById("languageSelect");
       const dropZone = document.getElementById("dropZone");
       let maxUploadBytes = Number.POSITIVE_INFINITY;
+      let sessionReady = false;
+      let uploadPending = false;
+
+      function devLog(message) {
+        if (new URLSearchParams(location.search).get("debug") === "1") console.debug("[droplite]", message);
+      }
 
       function normalizeLanguage(value) {
         return String(value || "").toLowerCase().startsWith("zh") ? "zh-CN" : "en";
@@ -568,16 +599,26 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         const expiresAt = new Date(data.expires_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         maxUploadBytes = data.max_upload_bytes;
         sessionText.textContent = t("connected", { device: data.device_name, time: expiresAt });
+        sessionReady = true;
+        disableUploads(false);
+        devLog("session ready");
       }
 
       async function sendTextValue() {
+        if (!sessionReady) {
+          setStatus(t("checkingSession"), "error");
+          return;
+        }
+        if (uploadPending) return;
         const text = textInput.value.trim();
         if (!text) {
           setStatus(t("emptyText"), "error");
           return;
         }
 
+        uploadPending = true;
         sendText.disabled = true;
+        devLog("text upload started");
         try {
           const response = await fetch("/api/upload/text?token=" + encodeURIComponent(token), {
             method: "POST",
@@ -585,29 +626,47 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
             body: JSON.stringify({ text })
           });
           const data = await parseResponse(response);
+          devLog("text upload response received: " + response.status);
           if (!response.ok) throw new Error(data.error || t("sendFailed"));
           textInput.value = "";
           setStatus(t("sent"), "ok");
+          devLog("text upload success");
         } catch (error) {
           setStatus(error.message || t("networkUnreachable"), "error");
+          devLog("text upload failed");
         } finally {
+          uploadPending = false;
           sendText.disabled = false;
         }
       }
 
-      async function uploadFiles(fileList) {
+      async function uploadFiles(fileList, sourceInput) {
+        if (!sessionReady) {
+          setStatus(t("checkingSession"), "error");
+          if (sourceInput) sourceInput.value = "";
+          return;
+        }
+        if (uploadPending) {
+          if (sourceInput) sourceInput.value = "";
+          return;
+        }
         const files = Array.from(fileList || []);
+        devLog("file input changed: " + files.length + " file(s)");
         if (files.length === 0) {
           setStatus(t("chooseFiles"), "error");
+          if (sourceInput) sourceInput.value = "";
           return;
         }
         const oversized = files.find((file) => file.size > maxUploadBytes);
         if (oversized) {
           setStatus(t("tooLarge", { name: oversized.name, max: formatBytes(maxUploadBytes) }), "error");
+          if (sourceInput) sourceInput.value = "";
           return;
         }
 
+        uploadPending = true;
         disableUploads(true);
+        devLog("upload started");
         setStatus(t("uploading"), "ok");
         const form = new FormData();
         for (const file of files) form.append("files", file, uploadNameFor(file));
@@ -618,15 +677,20 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
             body: form
           });
           const data = await parseResponse(response);
+          devLog("upload response received: " + response.status);
           if (!response.ok) throw new Error(data.error || t("uploadFailed"));
           photoInput.value = "";
           takePhotoInput.value = "";
           videoInput.value = "";
           fileInput.value = "";
           setStatus(t("sentCount", { count: files.length }), "ok");
+          devLog("upload success");
         } catch (error) {
           setStatus(error.message || t("networkUnreachable"), "error");
+          devLog("upload failed");
         } finally {
+          if (sourceInput) sourceInput.value = "";
+          uploadPending = false;
           disableUploads(false);
         }
       }
@@ -641,10 +705,10 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
       takePhoto.addEventListener("click", () => takePhotoInput.click());
       sendVideo.addEventListener("click", () => videoInput.click());
       sendFile.addEventListener("click", () => fileInput.click());
-      photoInput.addEventListener("change", () => uploadFiles(photoInput.files));
-      takePhotoInput.addEventListener("change", () => uploadFiles(takePhotoInput.files));
-      videoInput.addEventListener("change", () => uploadFiles(videoInput.files));
-      fileInput.addEventListener("change", () => uploadFiles(fileInput.files));
+      photoInput.addEventListener("change", (event) => uploadFiles(event.currentTarget.files, event.currentTarget));
+      takePhotoInput.addEventListener("change", (event) => uploadFiles(event.currentTarget.files, event.currentTarget));
+      videoInput.addEventListener("change", (event) => uploadFiles(event.currentTarget.files, event.currentTarget));
+      fileInput.addEventListener("change", (event) => uploadFiles(event.currentTarget.files, event.currentTarget));
       document.addEventListener("paste", (event) => {
         const text = event.clipboardData && event.clipboardData.getData("text/plain");
         if (text && document.activeElement !== textInput) textInput.value = text;
@@ -661,6 +725,9 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
       dropZone.addEventListener("drop", (event) => uploadFiles(event.dataTransfer.files));
 
       applyLanguage();
+      disableUploads(true);
+      devLog("upload page loaded");
+      devLog("token parsed: " + (token ? "present" : "missing"));
       checkSession().catch(() => {
         sessionText.textContent = t("networkUnreachable");
         disableUploads(true);

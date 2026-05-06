@@ -208,6 +208,14 @@ DropLite 0.1 uses local-network HTTP, so it is not recommended on public or untr
 
 DropLite uses standard browser file inputs. `Send photo` uses `accept="image/*"` and `Send video` uses `accept="video/*"`, which usually opens a gallery or media picker. Some browsers, embedded webviews, or chat-app browsers may still show a file manager. That behavior is controlled by the browser and operating system.
 
+### Why should the first upload work immediately?
+
+DropLite shows the QR code only after the local server is listening, and the phone upload page keeps upload buttons disabled until the session is confirmed. A success message means the desktop has already saved the file and created the received record.
+
+### My phone opens the QR page, but the first upload fails. What should I try?
+
+Check that Wi-Fi is stable, turn off VPNs, and scan a fresh QR code. If the issue is repeatable, please open an issue with the file type, phone browser, operating system, and any DropLite dev logs. Do not rely on repeated retries as the expected workflow.
+
 ### Should I see `.part` files in the receive folder?
 
 No. DropLite may create hidden `.droplite-upload-*.part` files while an upload is in progress, but a successful upload is renamed to the final timestamped name, such as `image-YYYYMMDD-HHMMSS-001.jpg`, `video-YYYYMMDD-HHMMSS-001.mp4`, or `file-YYYYMMDD-HHMMSS-001.pdf`.

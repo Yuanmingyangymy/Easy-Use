@@ -16,7 +16,7 @@ export function Header({ session, onRefresh, refreshing }: HeaderProps) {
       <div>
         <p className="eyebrow">{t("appScope")}</p>
         <h1>{t("appName")}</h1>
-        <p className="status-text">{t("ready")}</p>
+        <p className="status-text">{session.is_ready ? t("ready") : t("startingLocalServer")}</p>
       </div>
       <div className="header-actions">
         <label className="language-select">

@@ -1,4 +1,5 @@
 use crate::errors::AppError;
+use crate::server::debug_log;
 use std::{
     fs as std_fs,
     path::{Path, PathBuf},
@@ -15,6 +16,11 @@ pub fn ensure_upload_size(
         return Err(AppError::FileTooLarge { max_bytes });
     }
     Ok(next_total)
+}
+
+pub async fn ensure_receive_dir(path: &Path) -> Result<(), AppError> {
+    fs::create_dir_all(path).await?;
+    Ok(())
 }
 
 pub struct TempFileGuard {
@@ -39,7 +45,9 @@ impl TempFileGuard {
 impl Drop for TempFileGuard {
     fn drop(&mut self) {
         if !self.keep {
-            let _ = std_fs::remove_file(&self.path);
+            if std_fs::remove_file(&self.path).is_ok() {
+                debug_log("cleanup performed for temporary upload file");
+            }
         }
     }
 }
@@ -172,6 +180,35 @@ mod tests {
             b"image bytes"
         );
         let _ = std_fs::remove_file(final_path);
+    }
+
+    #[tokio::test]
+    async fn rename_failure_removes_part_file() {
+        let temp_path = test_file("rename-fail");
+        let missing_parent = std::env::temp_dir().join("droplite-missing-parent-for-rename");
+        let final_path = missing_parent.join("final.jpg");
+        let _ = std_fs::remove_dir_all(&missing_parent);
+        std_fs::write(&temp_path, b"image bytes").expect("write temp");
+
+        let result = rename_complete_upload(&temp_path, &final_path).await;
+
+        assert!(result.is_err());
+        assert!(!temp_path.exists());
+        assert!(!final_path.exists());
+    }
+
+    #[tokio::test]
+    async fn ensure_receive_dir_creates_missing_directory_for_first_upload() {
+        let dir = std::env::temp_dir().join(format!(
+            "droplite-missing-receive-dir-{}",
+            crate::server::now_epoch_secs()
+        ));
+        let _ = std_fs::remove_dir_all(&dir);
+
+        ensure_receive_dir(&dir).await.expect("create receive dir");
+
+        assert!(dir.exists());
+        let _ = std_fs::remove_dir_all(dir);
     }
 
     #[tokio::test]
