@@ -5,6 +5,7 @@ use std::{
 
 const FALLBACK_NAME: &str = "file";
 const MAX_FILENAME_CHARS: usize = 120;
+const MAX_EXTENSION_CHARS: usize = 10;
 
 pub fn sanitize_filename(input: &str) -> String {
     let base = input
@@ -35,20 +36,17 @@ pub fn upload_filename(
     original_name: Option<&str>,
     mime: Option<&str>,
     received_at: u64,
+    sequence: u16,
 ) -> String {
-    let extension = extension_for_mime(mime)
-        .or_else(|| original_name.and_then(extension_from_name))
-        .unwrap_or("bin");
-
-    if let Some(original_name) = original_name {
-        let sanitized = sanitize_filename(original_name);
-        if should_keep_original_name(&sanitized) {
-            return ensure_extension(&sanitized, extension);
-        }
-    }
-
-    let prefix = fallback_prefix(mime);
-    format!("{prefix}-{}.{}", compact_timestamp(received_at), extension)
+    let extension = original_name
+        .and_then(extension_from_name)
+        .or_else(|| extension_for_mime(mime).map(str::to_string))
+        .unwrap_or_else(|| "bin".to_string());
+    let prefix = fallback_prefix(mime, &extension);
+    sanitize_filename(&format!(
+        "{prefix}-{}-{sequence:03}.{extension}",
+        compact_timestamp(received_at)
+    ))
 }
 
 pub fn extension_for_mime(mime: Option<&str>) -> Option<&'static str> {
@@ -107,6 +105,26 @@ pub fn unique_path(directory: &Path, requested_name: &str) -> PathBuf {
     directory.join(format!("{stem} ({})", chrono_like_timestamp()))
 }
 
+pub fn unique_upload_path(
+    directory: &Path,
+    original_name: Option<&str>,
+    mime: Option<&str>,
+    received_at: u64,
+) -> PathBuf {
+    for sequence in 1..=999 {
+        let filename = upload_filename(original_name, mime, received_at, sequence);
+        let candidate = directory.join(filename);
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+
+    unique_path(
+        directory,
+        &upload_filename(original_name, mime, received_at, 1_000),
+    )
+}
+
 pub fn unique_temp_path(directory: &Path) -> PathBuf {
     for index in 0..10_000 {
         let filename = format!(".droplite-upload-{}-{index}.part", chrono_like_timestamp());
@@ -119,50 +137,32 @@ pub fn unique_temp_path(directory: &Path) -> PathBuf {
     directory.join(format!(".droplite-upload-{}.part", chrono_like_timestamp()))
 }
 
-fn should_keep_original_name(filename: &str) -> bool {
-    let path = Path::new(filename);
-    let stem = path
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .unwrap_or("")
-        .trim();
-    let has_extension = path.extension().is_some();
-
-    if !has_extension || stem.is_empty() || filename == FALLBACK_NAME {
-        return false;
-    }
-
-    if stem.len() > 80 {
-        return false;
-    }
-
-    !looks_like_hash(stem)
-}
-
-fn looks_like_hash(value: &str) -> bool {
-    value.len() >= 24 && value.chars().all(|character| character.is_ascii_hexdigit())
-}
-
-fn ensure_extension(filename: &str, extension: &str) -> String {
-    if Path::new(filename).extension().is_some() {
-        return truncate_filename(filename, MAX_FILENAME_CHARS);
-    }
-
-    truncate_filename(&format!("{filename}.{extension}"), MAX_FILENAME_CHARS)
-}
-
-fn extension_from_name(filename: &str) -> Option<&str> {
-    Path::new(filename)
+fn extension_from_name(filename: &str) -> Option<String> {
+    let sanitized = sanitize_filename(filename);
+    Path::new(&sanitized)
         .extension()
         .and_then(|value| value.to_str())
-        .filter(|value| !value.trim().is_empty())
+        .map(|value| value.trim().trim_start_matches('.'))
+        .filter(|value| {
+            !value.is_empty()
+                && value.len() <= MAX_EXTENSION_CHARS
+                && value
+                    .chars()
+                    .all(|character| character.is_ascii_alphanumeric())
+        })
+        .map(|value| value.to_ascii_lowercase())
 }
 
-fn fallback_prefix(mime: Option<&str>) -> &'static str {
+fn fallback_prefix(mime: Option<&str>, extension: &str) -> &'static str {
     let mime = mime.unwrap_or("").to_ascii_lowercase();
-    if mime.starts_with("image/") {
+    if mime.starts_with("image/")
+        || matches!(
+            extension,
+            "jpg" | "jpeg" | "png" | "webp" | "heic" | "heif" | "gif"
+        )
+    {
         "image"
-    } else if mime.starts_with("video/") {
+    } else if mime.starts_with("video/") || matches!(extension, "mp4" | "mov" | "webm") {
         "video"
     } else {
         "file"
@@ -193,39 +193,14 @@ fn truncate_filename(filename: &str, max_chars: usize) -> String {
 }
 
 fn compact_timestamp(timestamp: u64) -> String {
-    let (year, month, day, hour, minute, second) = utc_parts(timestamp);
-    format!("{year:04}{month:02}{day:02}-{hour:02}{minute:02}{second:02}")
-}
-
-fn utc_parts(timestamp: u64) -> (i32, u32, u32, u32, u32, u32) {
-    let days = (timestamp / 86_400) as i64;
-    let seconds_of_day = timestamp % 86_400;
-    let (year, month, day) = civil_from_days(days);
-
-    (
-        year,
-        month,
-        day,
-        (seconds_of_day / 3_600) as u32,
-        ((seconds_of_day % 3_600) / 60) as u32,
-        (seconds_of_day % 60) as u32,
-    )
-}
-
-fn civil_from_days(days_since_epoch: i64) -> (i32, u32, u32) {
-    let days = days_since_epoch + 719_468;
-    let era = if days >= 0 { days } else { days - 146_096 } / 146_097;
-    let day_of_era = days - era * 146_097;
-    let year_of_era =
-        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let year = year_of_era + era * 400;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let month_prime = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
-    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
-    let year = year + if month <= 2 { 1 } else { 0 };
-
-    (year as i32, month as u32, day as u32)
+    chrono::DateTime::from_timestamp(timestamp as i64, 0)
+        .map(|datetime| {
+            datetime
+                .with_timezone(&chrono::Local)
+                .format("%Y%m%d-%H%M%S")
+                .to_string()
+        })
+        .unwrap_or_else(|| "19700101-000000".to_string())
 }
 
 fn chrono_like_timestamp() -> u64 {
@@ -284,16 +259,63 @@ mod tests {
     #[test]
     fn builds_readable_fallback_names() {
         assert_eq!(
-            upload_filename(None, Some("image/jpeg"), 1_778_106_301),
-            "image-20260506-222501.jpg"
+            upload_filename(None, Some("image/jpeg"), 1_778_106_301, 1),
+            format!("image-{}-001.jpg", compact_timestamp(1_778_106_301))
         );
         assert_eq!(
-            upload_filename(Some("blob"), Some("video/mp4"), 1_778_106_301),
-            "video-20260506-222501.mp4"
+            upload_filename(Some("blob"), Some("video/mp4"), 1_778_106_301, 1),
+            format!("video-{}-001.mp4", compact_timestamp(1_778_106_301))
         );
         assert_eq!(
-            upload_filename(Some("file"), None, 1_778_106_301),
-            "file-20260506-222501.bin"
+            upload_filename(Some("file"), None, 1_778_106_301, 1),
+            format!("file-{}-001.bin", compact_timestamp(1_778_106_301))
+        );
+    }
+
+    #[test]
+    fn names_common_types_with_timestamp_and_sequence() {
+        let timestamp = 1_778_106_301;
+
+        assert_eq!(
+            upload_filename(None, Some("image/jpeg"), timestamp, 1),
+            format!("image-{}-001.jpg", compact_timestamp(timestamp))
+        );
+        assert_eq!(
+            upload_filename(None, Some("video/mp4"), timestamp, 1),
+            format!("video-{}-001.mp4", compact_timestamp(timestamp))
+        );
+        assert_eq!(
+            upload_filename(None, Some("application/pdf"), timestamp, 1),
+            format!("file-{}-001.pdf", compact_timestamp(timestamp))
+        );
+        assert_eq!(
+            upload_filename(Some("clip"), Some("video/mp4"), timestamp, 1),
+            format!("video-{}-001.mp4", compact_timestamp(timestamp))
+        );
+        assert_eq!(
+            upload_filename(None, Some("application/octet-stream"), timestamp, 1),
+            format!("file-{}-001.bin", compact_timestamp(timestamp))
+        );
+    }
+
+    #[test]
+    fn ignores_wechat_camera_original_name() {
+        assert_eq!(
+            upload_filename(
+                Some("wx_camera_1778063309104.jpg"),
+                Some("image/jpeg"),
+                1_778_106_301,
+                1
+            ),
+            format!("image-{}-001.jpg", compact_timestamp(1_778_106_301))
+        );
+    }
+
+    #[test]
+    fn keeps_original_extension_when_available() {
+        assert_eq!(
+            upload_filename(Some("../evil.mp4"), None, 1_778_106_301, 1),
+            format!("video-{}-001.mp4", compact_timestamp(1_778_106_301))
         );
     }
 
@@ -309,6 +331,30 @@ mod tests {
         assert_eq!(
             next.file_name().and_then(|value| value.to_str()),
             Some("file (2).mp4")
+        );
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn unique_upload_path_increments_timestamp_sequence() {
+        let temp = test_dir("timestamp-sequence");
+        let timestamp = 1_778_106_301;
+        fs::write(
+            temp.join(upload_filename(None, Some("image/jpeg"), timestamp, 1)),
+            b"existing",
+        )
+        .expect("write first");
+        fs::write(
+            temp.join(upload_filename(None, Some("image/jpeg"), timestamp, 2)),
+            b"existing",
+        )
+        .expect("write second");
+
+        let next = unique_upload_path(&temp, None, Some("image/jpeg"), timestamp);
+
+        assert_eq!(
+            next.file_name().and_then(|value| value.to_str()),
+            Some(upload_filename(None, Some("image/jpeg"), timestamp, 3).as_str())
         );
         cleanup(&temp);
     }

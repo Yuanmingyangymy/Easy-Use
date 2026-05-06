@@ -6,8 +6,10 @@ import { QRPanel } from "../components/QRPanel";
 import { ReceiveList } from "../components/ReceiveList";
 import { SecurityStatus } from "../components/SecurityStatus";
 import { SessionTimer } from "../components/SessionTimer";
+import { useI18n } from "../i18n";
 
 export function DesktopHome() {
+  const { t } = useI18n();
   const [state, setState] = useState<DesktopState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -17,7 +19,7 @@ export function DesktopHome() {
       setState(await getDesktopState());
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "DropLite failed to load.");
+      setError(cause instanceof Error ? cause.message : t("failedToLoad"));
     }
   }, []);
 
@@ -53,7 +55,7 @@ export function DesktopHome() {
       setState(await refreshSession());
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not refresh session.");
+      setError(cause instanceof Error ? cause.message : t("refreshFailed"));
     } finally {
       setRefreshing(false);
     }
@@ -62,7 +64,7 @@ export function DesktopHome() {
   if (!state) {
     return (
       <main className="shell centered">
-        <p>{error ?? "Starting DropLite..."}</p>
+        <p>{error ?? t("starting")}</p>
       </main>
     );
   }

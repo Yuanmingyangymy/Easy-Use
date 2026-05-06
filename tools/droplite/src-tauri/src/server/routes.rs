@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Multipart, Query, State},
-    http::StatusCode,
+    extract::{Multipart, Path as AxumPath, Query, State},
+    http::{header, HeaderMap, HeaderValue, StatusCode},
     response::{Html, IntoResponse},
     routing::{get, options, post},
     Json, Router,
@@ -13,7 +13,7 @@ use tower_http::cors::{Any, CorsLayer};
 
 use crate::{
     errors::AppError,
-    storage::filename::{unique_path, unique_temp_path, upload_filename},
+    storage::filename::{unique_temp_path, unique_upload_path},
 };
 
 use super::{
@@ -53,6 +53,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(upload_page))
         .route("/api/session", get(session_info))
+        .route("/api/received/:id/preview", get(received_preview))
         .route(
             "/api/upload/text",
             post(upload_text).options(options_handler),
@@ -118,6 +119,7 @@ async fn upload_text(
         name: "Text".to_string(),
         text: Some(text),
         path: None,
+        preview_url: None,
         size: None,
         mime: Some("text/plain".to_string()),
         received_at: now_epoch_secs(),
@@ -149,12 +151,17 @@ async fn upload_file(
         let original_name = field.file_name().map(|value| value.to_string());
         let content_type = field.content_type().map(|value| value.to_string());
         let received_at = now_epoch_secs();
-        let display_name = upload_filename(
+        let target_path = unique_upload_path(
+            &state.config().receive_dir,
             original_name.as_deref(),
             content_type.as_deref(),
             received_at,
         );
-        let target_path = unique_path(&state.config().receive_dir, &display_name);
+        let display_name = target_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("file.bin")
+            .to_string();
         let temp_path = unique_temp_path(&state.config().receive_dir);
         let mut output = LimitedFileWriter::create(temp_path.clone()).await?;
         let mut total_size = 0_u64;
@@ -218,8 +225,14 @@ async fn upload_file(
         } else {
             ReceivedKind::File
         };
+        let id = state.next_received_id("file");
+        let preview_url = if matches!(kind, ReceivedKind::Image) {
+            Some(state.preview_url(&id)?)
+        } else {
+            None
+        };
         let item = ReceivedItem {
-            id: state.next_received_id("file"),
+            id,
             kind,
             name: target_path
                 .file_name()
@@ -228,6 +241,7 @@ async fn upload_file(
                 .to_string(),
             text: None,
             path: Some(target_path.display().to_string()),
+            preview_url,
             size: Some(saved_size),
             mime,
             received_at,
@@ -247,6 +261,60 @@ async fn upload_file(
     }))
 }
 
+async fn received_preview(
+    State(state): State<Arc<AppState>>,
+    AxumPath(id): AxumPath<String>,
+    Query(query): Query<AuthQuery>,
+) -> Result<impl IntoResponse, AppError> {
+    let token = query.token.as_deref().ok_or(AppError::TokenInvalid)?;
+    state.validate_token(token)?;
+
+    let item = state
+        .received_item(&id)?
+        .ok_or_else(|| AppError::NotFound("Received file was not found.".to_string()))?;
+
+    if !matches!(item.kind, ReceivedKind::Image) {
+        return Err(AppError::NotFound(
+            "Preview is only available for received images.".to_string(),
+        ));
+    }
+
+    let path = item
+        .path
+        .as_deref()
+        .ok_or_else(|| AppError::NotFound("Received file path was not found.".to_string()))?;
+    let path = std::path::PathBuf::from(path);
+    let receive_dir = fs::canonicalize(&state.config().receive_dir).await?;
+    let file_path = fs::canonicalize(&path).await?;
+
+    if !file_path.starts_with(&receive_dir) {
+        return Err(AppError::NotFound(
+            "Preview is outside the receive directory.".to_string(),
+        ));
+    }
+
+    let bytes = fs::read(&file_path).await?;
+    let content_type = item
+        .mime
+        .as_deref()
+        .map(str::to_string)
+        .or_else(|| {
+            mime_guess::from_path(&file_path)
+                .first()
+                .map(|value| value.essence_str().to_string())
+        })
+        .unwrap_or_else(|| "application/octet-stream".to_string());
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_str(&content_type)
+            .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+    );
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+
+    Ok((headers, bytes))
+}
+
 const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
 <html lang="en">
   <head>
@@ -264,9 +332,13 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
       section { background: #fff; border: 1px solid #dfe7df; border-radius: 8px; margin-bottom: 14px; padding: 16px; }
       label { color: #253c32; display: block; font-weight: 700; margin-bottom: 8px; }
       textarea { border: 1px solid #cfdbd0; border-radius: 8px; font: inherit; min-height: 132px; padding: 12px; resize: vertical; width: 100%; }
-      input[type=file] { width: 100%; }
       button { align-items: center; background: #17352b; border: 0; border-radius: 8px; color: #fff; display: inline-flex; font: inherit; font-weight: 700; justify-content: center; min-height: 44px; padding: 0 16px; width: 100%; }
       button:disabled { opacity: .55; }
+      .topline { align-items: center; display: flex; justify-content: space-between; gap: 12px; }
+      select { background: #fff; border: 1px solid #cfdbd0; border-radius: 8px; color: #17352b; font: inherit; min-height: 36px; padding: 0 10px; }
+      .choice-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .choice-button { background: #eef4ee; color: #17352b; min-height: 58px; }
+      input[type=file] { height: 1px; opacity: 0; position: absolute; width: 1px; }
       .drop-zone { border: 1px dashed #9eb0a4; border-radius: 8px; color: #53645a; padding: 22px; text-align: center; }
       .drop-zone.dragging { background: #edf4ed; border-color: #17352b; color: #17352b; }
       .status { border-radius: 8px; margin: 12px 0; padding: 12px; }
@@ -278,39 +350,134 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
   <body>
     <main>
       <header>
-        <h1>Drop to this computer</h1>
-        <p id="sessionText">Checking session...</p>
+        <div class="topline">
+          <h1 data-i18n="title">Drop to this computer</h1>
+          <select id="languageSelect" aria-label="Language">
+            <option value="en">English</option>
+            <option value="zh-CN">简体中文</option>
+          </select>
+        </div>
+        <p id="sessionText" data-i18n="checkingSession">Checking session...</p>
       </header>
 
       <div id="status" class="status" hidden></div>
 
       <section>
-        <label for="text">Send text</label>
-        <textarea id="text" placeholder="Paste or type text here"></textarea>
-        <p class="muted">Paste text directly, then send it to the computer.</p>
-        <button id="sendText" type="button">Send text</button>
+        <label for="text" data-i18n="sendText">Send text</label>
+        <textarea id="text" data-i18n-placeholder="textPlaceholder" placeholder="Paste or type text here"></textarea>
+        <p class="muted" data-i18n="textHelp">Paste text directly, then send it to the computer.</p>
+        <button id="sendText" type="button" data-i18n="sendText">Send text</button>
       </section>
 
       <section>
-        <label for="files">Send files</label>
-        <div id="dropZone" class="drop-zone">Drop files here, or choose files below</div>
-        <input id="files" type="file" multiple />
-        <p class="muted">Images and files are saved on the receiving computer.</p>
-        <button id="sendFiles" type="button">Choose files</button>
+        <label data-i18n="chooseWhat">Choose what to send</label>
+        <div class="choice-grid">
+          <button id="sendPhoto" class="choice-button" type="button" data-i18n="sendPhoto">Send photo</button>
+          <button id="takePhoto" class="choice-button" type="button" data-i18n="takePhoto">Take photo</button>
+          <button id="sendVideo" class="choice-button" type="button" data-i18n="sendVideo">Send video</button>
+          <button id="sendFile" class="choice-button" type="button" data-i18n="sendFile">Send file</button>
+        </div>
+        <div id="dropZone" class="drop-zone" data-i18n="dropZone">Drop files here, or choose files above</div>
+        <input id="photoInput" type="file" accept="image/*" multiple />
+        <input id="takePhotoInput" type="file" accept="image/*" capture="environment" />
+        <input id="videoInput" type="file" accept="video/*" multiple />
+        <input id="fileInput" type="file" multiple />
+        <p class="muted" data-i18n="localOnly">Local network only. No cloud upload.</p>
       </section>
     </main>
 
     <script>
       const params = new URLSearchParams(location.search);
       const token = params.get("token") || "";
+      const dictionaries = {
+        en: {
+          title: "Drop to this computer",
+          checkingSession: "Checking session...",
+          sessionExpired: "Session expired. Please scan again.",
+          networkUnreachable: "Network unreachable.",
+          connected: "Connected to {device}. Session expires at {time}.",
+          sendText: "Send text",
+          textPlaceholder: "Paste or type text here",
+          textHelp: "Paste text directly, then send it to the computer.",
+          chooseWhat: "Choose what to send",
+          sendPhoto: "Send photo",
+          takePhoto: "Take photo",
+          sendVideo: "Send video",
+          sendFile: "Send file",
+          dropZone: "Drop files here, or choose files above",
+          localOnly: "Local network only. No cloud upload.",
+          emptyText: "Text is empty.",
+          chooseFiles: "Choose files first.",
+          tooLarge: "{name} is too large. Maximum size is {max}.",
+          uploading: "Uploading... Keep this page open until it finishes.",
+          sent: "Sent successfully",
+          sentCount: "Sent {count} file(s) successfully",
+          sendFailed: "Send failed.",
+          uploadFailed: "Upload failed."
+        },
+        "zh-CN": {
+          title: "投递到这台电脑",
+          checkingSession: "正在检查会话...",
+          sessionExpired: "会话已过期，请重新扫码。",
+          networkUnreachable: "网络不可达。",
+          connected: "已连接到 {device}，会话将在 {time} 过期。",
+          sendText: "发送文字",
+          textPlaceholder: "在这里粘贴或输入文字",
+          textHelp: "可直接粘贴文字，然后发送到电脑。",
+          chooseWhat: "选择要发送的内容",
+          sendPhoto: "发送图片",
+          takePhoto: "拍照发送",
+          sendVideo: "发送视频",
+          sendFile: "发送文件",
+          dropZone: "把文件拖到这里，或点击上方入口选择",
+          localOnly: "仅在本地网络传输，不经过云端。",
+          emptyText: "文字内容为空。",
+          chooseFiles: "请先选择文件。",
+          tooLarge: "{name} 太大。单文件最大 {max}。",
+          uploading: "正在上传，请保持页面打开直到完成。",
+          sent: "发送成功",
+          sentCount: "已成功发送 {count} 个文件",
+          sendFailed: "发送失败。",
+          uploadFailed: "上传失败。"
+        }
+      };
+      let language = normalizeLanguage(params.get("lang") || navigator.language || "en");
       const statusBox = document.getElementById("status");
       const sessionText = document.getElementById("sessionText");
       const textInput = document.getElementById("text");
-      const filesInput = document.getElementById("files");
+      const photoInput = document.getElementById("photoInput");
+      const takePhotoInput = document.getElementById("takePhotoInput");
+      const videoInput = document.getElementById("videoInput");
+      const fileInput = document.getElementById("fileInput");
       const sendText = document.getElementById("sendText");
-      const sendFiles = document.getElementById("sendFiles");
+      const sendPhoto = document.getElementById("sendPhoto");
+      const takePhoto = document.getElementById("takePhoto");
+      const sendVideo = document.getElementById("sendVideo");
+      const sendFile = document.getElementById("sendFile");
+      const languageSelect = document.getElementById("languageSelect");
       const dropZone = document.getElementById("dropZone");
       let maxUploadBytes = Number.POSITIVE_INFINITY;
+
+      function normalizeLanguage(value) {
+        return String(value || "").toLowerCase().startsWith("zh") ? "zh-CN" : "en";
+      }
+
+      function t(key, values) {
+        let text = (dictionaries[language] || dictionaries.en)[key] || dictionaries.en[key] || key;
+        for (const [name, value] of Object.entries(values || {})) text = text.split("{" + name + "}").join(String(value));
+        return text;
+      }
+
+      function applyLanguage() {
+        document.documentElement.lang = language;
+        languageSelect.value = language;
+        document.querySelectorAll("[data-i18n]").forEach((node) => {
+          node.textContent = t(node.getAttribute("data-i18n"));
+        });
+        document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
+          node.setAttribute("placeholder", t(node.getAttribute("data-i18n-placeholder")));
+        });
+      }
 
       function setStatus(message, type) {
         statusBox.hidden = false;
@@ -336,14 +503,20 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
 
       function disableUploads(disabled) {
         textInput.disabled = disabled;
-        filesInput.disabled = disabled;
+        photoInput.disabled = disabled;
+        takePhotoInput.disabled = disabled;
+        videoInput.disabled = disabled;
+        fileInput.disabled = disabled;
         sendText.disabled = disabled;
-        sendFiles.disabled = disabled;
+        sendPhoto.disabled = disabled;
+        takePhoto.disabled = disabled;
+        sendVideo.disabled = disabled;
+        sendFile.disabled = disabled;
       }
 
       async function checkSession() {
         if (!token) {
-          sessionText.textContent = "Session expired. Please scan again.";
+          sessionText.textContent = t("sessionExpired");
           disableUploads(true);
           return;
         }
@@ -351,21 +524,21 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         const response = await fetch("/api/session?token=" + encodeURIComponent(token));
         const data = await response.json();
         if (!data.valid) {
-          sessionText.textContent = "Session expired. Please scan again.";
-          setStatus(data.reason || "Session expired. Please scan again.", "error");
+          sessionText.textContent = t("sessionExpired");
+          setStatus(data.reason || t("sessionExpired"), "error");
           disableUploads(true);
           return;
         }
 
         const expiresAt = new Date(data.expires_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         maxUploadBytes = data.max_upload_bytes;
-        sessionText.textContent = "Connected to " + data.device_name + ". Session expires at " + expiresAt + ".";
+        sessionText.textContent = t("connected", { device: data.device_name, time: expiresAt });
       }
 
       async function sendTextValue() {
         const text = textInput.value.trim();
         if (!text) {
-          setStatus("Text is empty.", "error");
+          setStatus(t("emptyText"), "error");
           return;
         }
 
@@ -377,11 +550,11 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
             body: JSON.stringify({ text })
           });
           const data = await parseResponse(response);
-          if (!response.ok) throw new Error(data.error || "Send failed.");
+          if (!response.ok) throw new Error(data.error || t("sendFailed"));
           textInput.value = "";
-          setStatus("Sent successfully", "ok");
+          setStatus(t("sent"), "ok");
         } catch (error) {
-          setStatus(error.message || "Network unreachable.", "error");
+          setStatus(error.message || t("networkUnreachable"), "error");
         } finally {
           sendText.disabled = false;
         }
@@ -390,17 +563,17 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
       async function uploadFiles(fileList) {
         const files = Array.from(fileList || []);
         if (files.length === 0) {
-          setStatus("Choose files first.", "error");
+          setStatus(t("chooseFiles"), "error");
           return;
         }
         const oversized = files.find((file) => file.size > maxUploadBytes);
         if (oversized) {
-          setStatus(oversized.name + " is too large. Maximum size is " + formatBytes(maxUploadBytes) + ".", "error");
+          setStatus(t("tooLarge", { name: oversized.name, max: formatBytes(maxUploadBytes) }), "error");
           return;
         }
 
-        sendFiles.disabled = true;
-        setStatus("Uploading... Keep this page open until it finishes.", "ok");
+        disableUploads(true);
+        setStatus(t("uploading"), "ok");
         const form = new FormData();
         for (const file of files) form.append("files", file, file.name);
 
@@ -410,19 +583,33 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
             body: form
           });
           const data = await parseResponse(response);
-          if (!response.ok) throw new Error(data.error || "Upload failed.");
-          filesInput.value = "";
-          setStatus("Sent successfully", "ok");
+          if (!response.ok) throw new Error(data.error || t("uploadFailed"));
+          photoInput.value = "";
+          takePhotoInput.value = "";
+          videoInput.value = "";
+          fileInput.value = "";
+          setStatus(t("sentCount", { count: files.length }), "ok");
         } catch (error) {
-          setStatus(error.message || "Network unreachable.", "error");
+          setStatus(error.message || t("networkUnreachable"), "error");
         } finally {
-          sendFiles.disabled = false;
+          disableUploads(false);
         }
       }
 
+      languageSelect.addEventListener("change", () => {
+        language = normalizeLanguage(languageSelect.value);
+        applyLanguage();
+        checkSession().catch(() => undefined);
+      });
       sendText.addEventListener("click", sendTextValue);
-      sendFiles.addEventListener("click", () => filesInput.click());
-      filesInput.addEventListener("change", () => uploadFiles(filesInput.files));
+      sendPhoto.addEventListener("click", () => photoInput.click());
+      takePhoto.addEventListener("click", () => takePhotoInput.click());
+      sendVideo.addEventListener("click", () => videoInput.click());
+      sendFile.addEventListener("click", () => fileInput.click());
+      photoInput.addEventListener("change", () => uploadFiles(photoInput.files));
+      takePhotoInput.addEventListener("change", () => uploadFiles(takePhotoInput.files));
+      videoInput.addEventListener("change", () => uploadFiles(videoInput.files));
+      fileInput.addEventListener("change", () => uploadFiles(fileInput.files));
       document.addEventListener("paste", (event) => {
         const text = event.clipboardData && event.clipboardData.getData("text/plain");
         if (text && document.activeElement !== textInput) textInput.value = text;
@@ -438,8 +625,9 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
       }));
       dropZone.addEventListener("drop", (event) => uploadFiles(event.dataTransfer.files));
 
+      applyLanguage();
       checkSession().catch(() => {
-        sessionText.textContent = "Network unreachable.";
+        sessionText.textContent = t("networkUnreachable");
         disableUploads(true);
       });
     </script>

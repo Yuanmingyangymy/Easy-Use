@@ -1,19 +1,25 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { beforeEach, describe, expect, it } from "vitest";
 import { ReceiveList } from "./ReceiveList";
+import { I18nProvider } from "../i18n";
 
-vi.mock("@tauri-apps/api/core", () => ({
-  convertFileSrc: (path: string) => path
-}));
+function renderWithI18n(ui: ReactElement) {
+  return render(<I18nProvider>{ui}</I18nProvider>);
+}
 
 describe("ReceiveList", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it("renders an empty state", () => {
-    render(<ReceiveList items={[]} onOpenFolder={() => undefined} />);
+    renderWithI18n(<ReceiveList items={[]} onOpenFolder={() => undefined} />);
     expect(screen.getByText("No account. No cloud. No history.")).toBeInTheDocument();
   });
 
   it("renders received text", () => {
-    render(
+    renderWithI18n(
       <ReceiveList
         onOpenFolder={() => undefined}
         items={[
@@ -33,7 +39,7 @@ describe("ReceiveList", () => {
   });
 
   it("renders an image item with a thumbnail", () => {
-    render(
+    renderWithI18n(
       <ReceiveList
         onOpenFolder={() => undefined}
         items={[
@@ -42,6 +48,7 @@ describe("ReceiveList", () => {
             kind: "image",
             name: "photo.jpg",
             path: "C:/DropLite/photo.jpg",
+            preview_url: "http://127.0.0.1:1234/api/received/image-1/preview?token=abc",
             size: 2048,
             mime: "image/jpeg",
             received_at: 1
@@ -51,13 +58,38 @@ describe("ReceiveList", () => {
     );
 
     expect(screen.getByText("photo.jpg")).toBeInTheDocument();
-    expect(screen.getByAltText("photo.jpg thumbnail")).toHaveAttribute("src", "C:/DropLite/photo.jpg");
+    expect(screen.getByAltText("photo.jpg thumbnail")).toHaveAttribute(
+      "src",
+      "http://127.0.0.1:1234/api/received/image-1/preview?token=abc"
+    );
     expect(screen.getByText(/image\/jpeg/)).toBeInTheDocument();
     expect(screen.getByText(/2.0 KB/)).toBeInTheDocument();
   });
 
+  it("shows a custom placeholder when an image thumbnail fails", () => {
+    renderWithI18n(
+      <ReceiveList
+        onOpenFolder={() => undefined}
+        items={[
+          {
+            id: "image-1",
+            kind: "image",
+            name: "broken.png",
+            preview_url: "http://127.0.0.1:1234/api/received/image-1/preview?token=abc",
+            size: 2048,
+            mime: "image/png",
+            received_at: 1
+          }
+        ]}
+      />
+    );
+
+    fireEvent.error(screen.getByAltText("broken.png thumbnail"));
+    expect(screen.getByLabelText("image preview")).toBeInTheDocument();
+  });
+
   it("renders a video item as a received file card", () => {
-    render(
+    renderWithI18n(
       <ReceiveList
         onOpenFolder={() => undefined}
         items={[
@@ -81,7 +113,7 @@ describe("ReceiveList", () => {
   });
 
   it("renders a normal file item with name size and time", () => {
-    render(
+    renderWithI18n(
       <ReceiveList
         onOpenFolder={() => undefined}
         items={[

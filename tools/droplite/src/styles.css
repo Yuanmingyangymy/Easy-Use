@@ -98,6 +98,31 @@ h2 {
   white-space: nowrap;
 }
 
+.language-select {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dfe7df;
+  border-radius: 8px;
+  color: #526258;
+  display: inline-flex;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 10px;
+}
+
+.language-select span {
+  font-size: 0.85rem;
+}
+
+.language-select select {
+  background: transparent;
+  border: 0;
+  color: #17352b;
+  font: inherit;
+  font-weight: 700;
+  outline: none;
+}
+
 .icon-button,
 .text-button {
   align-items: center;

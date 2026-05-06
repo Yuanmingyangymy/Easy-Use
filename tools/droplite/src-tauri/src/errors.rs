@@ -13,6 +13,7 @@ pub enum AppError {
     Io(io::Error),
     LockFailed(&'static str),
     Multipart(String),
+    NotFound(String),
     SessionExpired,
     TokenInvalid,
 }
@@ -27,6 +28,7 @@ impl AppError {
         match self {
             AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
             AppError::FileTooLarge { .. } => StatusCode::PAYLOAD_TOO_LARGE,
+            AppError::NotFound(_) => StatusCode::NOT_FOUND,
             AppError::SessionExpired | AppError::TokenInvalid => StatusCode::UNAUTHORIZED,
             AppError::Io(_) | AppError::LockFailed(_) | AppError::Multipart(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
@@ -48,6 +50,7 @@ impl fmt::Display for AppError {
             AppError::Io(error) => write!(formatter, "{error}"),
             AppError::LockFailed(name) => write!(formatter, "Internal state lock failed: {name}"),
             AppError::Multipart(message) => write!(formatter, "{message}"),
+            AppError::NotFound(message) => write!(formatter, "{message}"),
             AppError::SessionExpired => write!(formatter, "Session expired. Please scan again."),
             AppError::TokenInvalid => write!(formatter, "Invalid session token."),
         }

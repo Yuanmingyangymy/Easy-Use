@@ -1,7 +1,8 @@
 import { Check, Clipboard, File, FolderOpen, Image as ImageIcon, Video } from "lucide-react";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { useState } from "react";
 import type { ReceivedItem } from "../lib/types";
 import { formatBytes, formatTime } from "../lib/format";
+import { useI18n } from "../i18n";
 
 interface ReceiveListProps {
   items: ReceivedItem[];
@@ -9,14 +10,16 @@ interface ReceiveListProps {
 }
 
 export function ReceiveList({ items, onOpenFolder }: ReceiveListProps) {
+  const { t } = useI18n();
+
   return (
     <section className="receive-panel" aria-label="Received items">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Inbox</p>
-          <h2>Recently received</h2>
+          <p className="eyebrow">{t("inbox")}</p>
+          <h2>{t("recentlyReceived")}</h2>
         </div>
-        <button className="icon-button" onClick={onOpenFolder} title="Open folder">
+        <button className="icon-button" onClick={onOpenFolder} title={t("openFolder")}>
           <FolderOpen size={18} />
         </button>
       </div>
@@ -24,7 +27,7 @@ export function ReceiveList({ items, onOpenFolder }: ReceiveListProps) {
       {items.length === 0 ? (
         <div className="empty-state">
           <Check size={24} />
-          <p>No account. No cloud. No history.</p>
+          <p>{t("noAccountCloudHistory")}</p>
         </div>
       ) : (
         <ul className="receive-list">
@@ -33,26 +36,26 @@ export function ReceiveList({ items, onOpenFolder }: ReceiveListProps) {
               <Preview item={item} />
               <div className="receive-copy">
                 <div className="receive-title-row">
-                  <strong>{item.kind === "text" ? "Received text" : item.name}</strong>
+                  <strong>{item.kind === "text" ? t("receivedText") : item.name}</strong>
                   <span>{formatTime(item.received_at)}</span>
                 </div>
                 {item.kind === "text" ? (
                   <p className="text-preview">{item.text}</p>
                 ) : (
                   <p className="meta-line">
-                    {labelForKind(item.kind, item.mime)} {formatBytes(item.size)}
+                    {labelForKind(item.kind, item.mime, t)} {formatBytes(item.size)}
                   </p>
                 )}
                 <div className="item-actions">
                   {item.kind === "text" && item.text ? (
                     <button className="text-button" onClick={() => void navigator.clipboard.writeText(item.text ?? "")}>
                       <Clipboard size={16} />
-                      <span>Copy text</span>
+                      <span>{t("copyText")}</span>
                     </button>
                   ) : (
                     <button className="text-button" onClick={onOpenFolder}>
                       <FolderOpen size={16} />
-                      <span>Open folder</span>
+                      <span>{t("openFolder")}</span>
                     </button>
                   )}
                 </div>
@@ -66,8 +69,10 @@ export function ReceiveList({ items, onOpenFolder }: ReceiveListProps) {
 }
 
 function Preview({ item }: { item: ReceivedItem }) {
-  if (item.kind === "image" && item.path) {
-    return <img className="thumb" src={convertFileSrc(item.path)} alt={`${item.name} thumbnail`} />;
+  const [failed, setFailed] = useState(false);
+
+  if (item.kind === "image" && item.preview_url && !failed) {
+    return <img className="thumb" src={item.preview_url} alt={`${item.name} thumbnail`} onError={() => setFailed(true)} />;
   }
 
   return (
@@ -77,8 +82,9 @@ function Preview({ item }: { item: ReceivedItem }) {
   );
 }
 
-function labelForKind(kind: ReceivedItem["kind"], mime?: string): string {
-  if (kind === "image") return mime ?? "Image";
-  if (kind === "video") return mime ?? "Video";
-  return mime ?? "File";
+function labelForKind(kind: ReceivedItem["kind"], mime: string | undefined, t: ReturnType<typeof useI18n>["t"]): string {
+  if (mime) return mime;
+  if (kind === "image") return t("image");
+  if (kind === "video") return t("video");
+  return t("file");
 }

@@ -6,6 +6,7 @@ export interface ReceivedItem {
   name: string;
   text?: string;
   path?: string;
+  preview_url?: string;
   size?: number;
   mime?: string;
   received_at: number;

@@ -55,6 +55,7 @@ pub struct ReceivedItem {
     pub name: String,
     pub text: Option<String>,
     pub path: Option<String>,
+    pub preview_url: Option<String>,
     pub size: Option<u64>,
     pub mime: Option<String>,
     pub received_at: u64,
@@ -186,17 +187,34 @@ impl AppState {
         Ok(())
     }
 
+    pub fn received_item(&self, id: &str) -> Result<Option<ReceivedItem>, AppError> {
+        let received = self
+            .received
+            .read()
+            .map_err(|_| AppError::LockFailed("received"))?;
+        Ok(received.iter().find(|item| item.id == id).cloned())
+    }
+
     pub fn next_received_id(&self, prefix: &str) -> String {
         let counter = self.id_counter.fetch_add(1, Ordering::Relaxed);
         format!("{prefix}-{}-{counter}", now_epoch_secs())
     }
 
+    pub fn preview_url(&self, id: &str) -> Result<String, AppError> {
+        let session = self.session_snapshot()?;
+        Ok(format!(
+            "http://127.0.0.1:{}/api/received/{}/preview?token={}",
+            session.port, id, session.token
+        ))
+    }
+
     pub fn desktop_state(&self) -> Result<DesktopState, AppError> {
-        let received = self
+        let mut received = self
             .received
             .read()
             .map_err(|_| AppError::LockFailed("received"))?
             .clone();
+        self.attach_preview_urls(&mut received)?;
 
         Ok(DesktopState {
             session: self.session_view()?,
@@ -233,6 +251,18 @@ impl AppState {
             .read()
             .map_err(|_| AppError::LockFailed("session"))
             .map(|session| session.clone())
+    }
+
+    fn attach_preview_urls(&self, items: &mut [ReceivedItem]) -> Result<(), AppError> {
+        for item in items {
+            item.preview_url = if matches!(item.kind, ReceivedKind::Image) {
+                Some(self.preview_url(&item.id)?)
+            } else {
+                None
+            };
+        }
+
+        Ok(())
     }
 }
 

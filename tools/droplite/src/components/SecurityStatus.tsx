@@ -1,20 +1,22 @@
 import { ShieldCheck } from "lucide-react";
 import type { SessionView } from "../lib/types";
+import { useI18n } from "../i18n";
 
 interface SecurityStatusProps {
   session: SessionView;
 }
 
 export function SecurityStatus({ session }: SecurityStatusProps) {
+  const { t } = useI18n();
+  const note = session.local_ip === "127.0.0.1" ? t("noLanIp") : t("securityNote");
+
   return (
     <section className="security-panel" aria-label="Security status">
       <ShieldCheck size={20} />
       <div>
-        <strong>Local network only</strong>
-        <p>{session.security_note}</p>
-        <p className="connection-hint">
-          If your phone cannot open the QR link on Windows, set this Wi-Fi network to Private and allow firewall access.
-        </p>
+        <strong>{t("localNetworkOnly")}</strong>
+        <p>{note}</p>
+        <p className="connection-hint">{t("windowsHint")}</p>
       </div>
     </section>
   );
