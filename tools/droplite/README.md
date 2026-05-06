@@ -208,6 +208,12 @@ DropLite 0.1 uses local-network HTTP, so it is not recommended on public or untr
 
 DropLite uses standard browser file inputs. `Send photo` uses `accept="image/*"` and `Send video` uses `accept="video/*"`, which usually opens a gallery or media picker. Some browsers, embedded webviews, or chat-app browsers may still show a file manager. That behavior is controlled by the browser and operating system.
 
+### Should I see `.part` files in the receive folder?
+
+No. DropLite may create hidden `.droplite-upload-*.part` files while an upload is in progress, but a successful upload is renamed to the final timestamped name, such as `image-YYYYMMDD-HHMMSS-001.jpg`, `video-YYYYMMDD-HHMMSS-001.mp4`, or `file-YYYYMMDD-HHMMSS-001.pdf`.
+
+If a `.part` file remains, the upload was interrupted or an earlier version hit a cleanup bug. Current builds remove temporary files when uploads fail because of size limits, token expiry, network interruption, or write errors.
+
 ## Roadmap
 
 See [docs/roadmap.md](docs/roadmap.md).

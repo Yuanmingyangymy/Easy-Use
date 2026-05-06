@@ -1,5 +1,8 @@
 use crate::errors::AppError;
-use std::path::{Path, PathBuf};
+use std::{
+    fs as std_fs,
+    path::{Path, PathBuf},
+};
 use tokio::{fs, io::AsyncWriteExt};
 
 pub fn ensure_upload_size(
@@ -12,6 +15,33 @@ pub fn ensure_upload_size(
         return Err(AppError::FileTooLarge { max_bytes });
     }
     Ok(next_total)
+}
+
+pub struct TempFileGuard {
+    path: PathBuf,
+    keep: bool,
+}
+
+impl TempFileGuard {
+    pub fn new(path: PathBuf) -> Self {
+        Self { path, keep: false }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn keep(&mut self) {
+        self.keep = true;
+    }
+}
+
+impl Drop for TempFileGuard {
+    fn drop(&mut self) {
+        if !self.keep {
+            let _ = std_fs::remove_file(&self.path);
+        }
+    }
 }
 
 pub struct LimitedFileWriter {
@@ -123,5 +153,36 @@ mod tests {
         assert_eq!(size, 7);
         assert_eq!(std_fs::metadata(&path).expect("metadata").len(), 7);
         let _ = std_fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn rename_complete_upload_moves_part_to_final_file() {
+        let temp_path = test_file("rename");
+        let final_path = temp_path.with_extension("jpg");
+        std_fs::write(&temp_path, b"image bytes").expect("write temp");
+
+        rename_complete_upload(&temp_path, &final_path)
+            .await
+            .expect("rename");
+
+        assert!(final_path.exists());
+        assert!(!temp_path.exists());
+        assert_eq!(
+            std_fs::read(&final_path).expect("read final"),
+            b"image bytes"
+        );
+        let _ = std_fs::remove_file(final_path);
+    }
+
+    #[tokio::test]
+    async fn temp_file_guard_removes_uncommitted_file() {
+        let path = test_file("guard");
+        std_fs::write(&path, b"partial").expect("write temp");
+
+        {
+            let _guard = TempFileGuard::new(path.clone());
+        }
+
+        assert!(!path.exists());
     }
 }

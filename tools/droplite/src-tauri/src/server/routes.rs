@@ -18,7 +18,7 @@ use crate::{
 
 use super::{
     now_epoch_secs,
-    upload::{ensure_upload_size, rename_complete_upload, LimitedFileWriter},
+    upload::{ensure_upload_size, rename_complete_upload, LimitedFileWriter, TempFileGuard},
     AppState, ReceivedItem, ReceivedKind,
 };
 
@@ -148,105 +148,7 @@ async fn upload_file(
         .await
         .map_err(|error| AppError::Multipart(error.to_string()))?
     {
-        let original_name = field.file_name().map(|value| value.to_string());
-        let content_type = field.content_type().map(|value| value.to_string());
-        let received_at = now_epoch_secs();
-        let target_path = unique_upload_path(
-            &state.config().receive_dir,
-            original_name.as_deref(),
-            content_type.as_deref(),
-            received_at,
-        );
-        let display_name = target_path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or("file.bin")
-            .to_string();
-        let temp_path = unique_temp_path(&state.config().receive_dir);
-        let mut output = LimitedFileWriter::create(temp_path.clone()).await?;
-        let mut total_size = 0_u64;
-
-        loop {
-            let chunk = match field.chunk().await {
-                Ok(Some(chunk)) => chunk,
-                Ok(None) => break,
-                Err(error) => {
-                    output.abort().await;
-                    return Err(AppError::Multipart(format!(
-                        "Upload was interrupted before the file was fully received: {error}"
-                    )));
-                }
-            };
-
-            if let Err(error) = output
-                .write_chunk(&chunk, state.config().max_upload_bytes)
-                .await
-            {
-                output.abort().await;
-                return Err(error);
-            }
-            total_size = total_size.saturating_add(chunk.len() as u64);
-        }
-
-        let written_size = output.finish().await?;
-        if written_size != total_size {
-            let _ = fs::remove_file(&temp_path).await;
-            return Err(AppError::Io(std::io::Error::new(
-                std::io::ErrorKind::WriteZero,
-                "Saved file size did not match uploaded bytes.",
-            )));
-        }
-
-        rename_complete_upload(&temp_path, &target_path).await?;
-        let saved_size = fs::metadata(&target_path).await?.len();
-        if saved_size != written_size {
-            let _ = fs::remove_file(&target_path).await;
-            return Err(AppError::Io(std::io::Error::new(
-                std::io::ErrorKind::WriteZero,
-                "Saved file size did not match uploaded bytes.",
-            )));
-        }
-
-        let mime = content_type.or_else(|| {
-            mime_guess::from_path(&target_path)
-                .first()
-                .map(|value| value.essence_str().to_string())
-        });
-        let kind = if mime
-            .as_deref()
-            .is_some_and(|value| value.starts_with("image/"))
-        {
-            ReceivedKind::Image
-        } else if mime
-            .as_deref()
-            .is_some_and(|value| value.starts_with("video/"))
-        {
-            ReceivedKind::Video
-        } else {
-            ReceivedKind::File
-        };
-        let id = state.next_received_id("file");
-        let preview_url = if matches!(kind, ReceivedKind::Image) {
-            Some(state.preview_url(&id)?)
-        } else {
-            None
-        };
-        let item = ReceivedItem {
-            id,
-            kind,
-            name: target_path
-                .file_name()
-                .and_then(|value| value.to_str())
-                .unwrap_or(&display_name)
-                .to_string(),
-            text: None,
-            path: Some(target_path.display().to_string()),
-            preview_url,
-            size: Some(saved_size),
-            mime,
-            received_at,
-        };
-
+        let item = save_upload_field(&state, &mut field).await?;
         state.add_received(item.clone())?;
         received_items.push(item);
     }
@@ -259,6 +161,121 @@ async fn upload_file(
         ok: true,
         items: received_items,
     }))
+}
+
+async fn save_upload_field(
+    state: &Arc<AppState>,
+    field: &mut axum::extract::multipart::Field<'_>,
+) -> Result<ReceivedItem, AppError> {
+    let original_name = field.file_name().map(|value| value.to_string());
+    let content_type = field.content_type().map(|value| value.to_string());
+    let received_at = now_epoch_secs();
+    let target_path = unique_upload_path(
+        &state.config().receive_dir,
+        original_name.as_deref(),
+        content_type.as_deref(),
+        received_at,
+    );
+    let display_name = target_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("file.bin")
+        .to_string();
+    let temp_path = unique_temp_path(&state.config().receive_dir);
+    let mut temp_guard = TempFileGuard::new(temp_path);
+    let mut output = LimitedFileWriter::create(temp_guard.path().to_path_buf()).await?;
+    let mut total_size = 0_u64;
+
+    loop {
+        let chunk = match field.chunk().await {
+            Ok(Some(chunk)) => chunk,
+            Ok(None) => break,
+            Err(error) => {
+                output.abort().await;
+                return Err(AppError::Multipart(format!(
+                    "Upload was interrupted before the file was fully received: {error}"
+                )));
+            }
+        };
+
+        if let Err(error) = output
+            .write_chunk(&chunk, state.config().max_upload_bytes)
+            .await
+        {
+            output.abort().await;
+            return Err(error);
+        }
+        total_size = total_size.saturating_add(chunk.len() as u64);
+    }
+
+    let written_size = output.finish().await?;
+    if written_size != total_size {
+        return Err(AppError::Io(std::io::Error::new(
+            std::io::ErrorKind::WriteZero,
+            "Saved file size did not match uploaded bytes.",
+        )));
+    }
+
+    rename_complete_upload(temp_guard.path(), &target_path).await?;
+    temp_guard.keep();
+
+    let saved_size = fs::metadata(&target_path).await?.len();
+    if saved_size != written_size {
+        let _ = fs::remove_file(&target_path).await;
+        return Err(AppError::Io(std::io::Error::new(
+            std::io::ErrorKind::WriteZero,
+            "Saved file size did not match uploaded bytes.",
+        )));
+    }
+
+    let mime = content_type.or_else(|| {
+        mime_guess::from_path(&target_path)
+            .first()
+            .map(|value| value.essence_str().to_string())
+    });
+    let kind = received_kind_for(mime.as_deref(), &target_path);
+    let id = state.next_received_id("file");
+    let preview_url = if matches!(kind, ReceivedKind::Image) {
+        Some(state.preview_url(&id)?)
+    } else {
+        None
+    };
+
+    Ok(ReceivedItem {
+        id,
+        kind,
+        name: target_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or(&display_name)
+            .to_string(),
+        text: None,
+        path: Some(target_path.display().to_string()),
+        preview_url,
+        size: Some(saved_size),
+        mime,
+        received_at,
+    })
+}
+
+fn received_kind_for(mime: Option<&str>, path: &std::path::Path) -> ReceivedKind {
+    if mime.is_some_and(|value| value.starts_with("image/")) {
+        return ReceivedKind::Image;
+    }
+    if mime.is_some_and(|value| value.starts_with("video/")) {
+        return ReceivedKind::Video;
+    }
+
+    match path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("jpg" | "jpeg" | "png" | "webp" | "heic" | "heif" | "gif") => ReceivedKind::Image,
+        Some("mp4" | "mov" | "webm") => ReceivedKind::Video,
+        _ => ReceivedKind::File,
+    }
 }
 
 async fn received_preview(
@@ -491,6 +508,24 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         return bytes + " B";
       }
 
+      function uploadNameFor(file) {
+        const original = (file && file.name ? file.name : "").trim();
+        if (original && original !== "blob" && original !== "image" && original !== "unknown") return original;
+
+        const type = file && file.type ? file.type.toLowerCase() : "";
+        const extension = type === "image/png" ? "png"
+          : type === "image/webp" ? "webp"
+          : type === "image/heic" ? "heic"
+          : type === "image/heif" ? "heif"
+          : type === "video/mp4" ? "mp4"
+          : type === "video/quicktime" ? "mov"
+          : type === "video/webm" ? "webm"
+          : type.startsWith("image/") ? "jpg"
+          : "bin";
+        const prefix = type.startsWith("image/") ? "image" : type.startsWith("video/") ? "video" : "file";
+        return prefix + "." + extension;
+      }
+
       async function parseResponse(response) {
         const text = await response.text();
         if (!text) return {};
@@ -575,7 +610,7 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         disableUploads(true);
         setStatus(t("uploading"), "ok");
         const form = new FormData();
-        for (const file of files) form.append("files", file, file.name);
+        for (const file of files) form.append("files", file, uploadNameFor(file));
 
         try {
           const response = await fetch("/api/upload/file?token=" + encodeURIComponent(token), {

@@ -299,6 +299,24 @@ mod tests {
     }
 
     #[test]
+    fn names_mobile_photo_edge_cases() {
+        let timestamp = 1_778_106_301;
+
+        assert_eq!(
+            upload_filename(Some(""), Some("image/jpeg"), timestamp, 1),
+            format!("image-{}-001.jpg", compact_timestamp(timestamp))
+        );
+        assert_eq!(
+            upload_filename(Some("blob"), Some("image/png"), timestamp, 1),
+            format!("image-{}-001.png", compact_timestamp(timestamp))
+        );
+        assert_eq!(
+            upload_filename(Some("image"), Some("image/heic"), timestamp, 1),
+            format!("image-{}-001.heic", compact_timestamp(timestamp))
+        );
+    }
+
+    #[test]
     fn ignores_wechat_camera_original_name() {
         assert_eq!(
             upload_filename(
@@ -355,6 +373,22 @@ mod tests {
         assert_eq!(
             next.file_name().and_then(|value| value.to_str()),
             Some(upload_filename(None, Some("image/jpeg"), timestamp, 3).as_str())
+        );
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn unique_upload_path_increments_multiple_photos_same_second() {
+        let temp = test_dir("photo-sequence");
+        let timestamp = 1_778_106_301;
+        let first_name = upload_filename(Some("blob"), Some("image/jpeg"), timestamp, 1);
+        fs::write(temp.join(first_name), b"existing").expect("write first");
+
+        let next = unique_upload_path(&temp, Some("blob"), Some("image/jpeg"), timestamp);
+
+        assert_eq!(
+            next.file_name().and_then(|value| value.to_str()),
+            Some(upload_filename(Some("blob"), Some("image/jpeg"), timestamp, 2).as_str())
         );
         cleanup(&temp);
     }
