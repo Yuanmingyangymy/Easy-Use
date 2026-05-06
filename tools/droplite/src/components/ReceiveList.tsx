@@ -1,4 +1,4 @@
-import { Check, Clipboard, File, FolderOpen, Image as ImageIcon } from "lucide-react";
+import { Check, Clipboard, File, FolderOpen, Image as ImageIcon, Video } from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { ReceivedItem } from "../lib/types";
 import { formatBytes, formatTime } from "../lib/format";
@@ -40,7 +40,7 @@ export function ReceiveList({ items, onOpenFolder }: ReceiveListProps) {
                   <p className="text-preview">{item.text}</p>
                 ) : (
                   <p className="meta-line">
-                    {item.mime ?? "File"} {formatBytes(item.size)}
+                    {labelForKind(item.kind, item.mime)} {formatBytes(item.size)}
                   </p>
                 )}
                 <div className="item-actions">
@@ -67,12 +67,18 @@ export function ReceiveList({ items, onOpenFolder }: ReceiveListProps) {
 
 function Preview({ item }: { item: ReceivedItem }) {
   if (item.kind === "image" && item.path) {
-    return <img className="thumb" src={convertFileSrc(item.path)} alt="" />;
+    return <img className="thumb" src={convertFileSrc(item.path)} alt={`${item.name} thumbnail`} />;
   }
 
   return (
-    <div className="file-icon">
-      {item.kind === "image" ? <ImageIcon size={22} /> : <File size={22} />}
+    <div className="file-icon" aria-label={`${item.kind} preview`}>
+      {item.kind === "image" ? <ImageIcon size={22} /> : item.kind === "video" ? <Video size={22} /> : <File size={22} />}
     </div>
   );
+}
+
+function labelForKind(kind: ReceivedItem["kind"], mime?: string): string {
+  if (kind === "image") return mime ?? "Image";
+  if (kind === "video") return mime ?? "Video";
+  return mime ?? "File";
 }

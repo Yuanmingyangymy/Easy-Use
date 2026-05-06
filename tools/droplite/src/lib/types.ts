@@ -1,4 +1,4 @@
-export type ReceivedKind = "text" | "file" | "image";
+export type ReceivedKind = "text" | "file" | "image" | "video";
 
 export interface ReceivedItem {
   id: string;

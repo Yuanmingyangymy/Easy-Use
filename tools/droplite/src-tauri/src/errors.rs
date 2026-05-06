@@ -40,7 +40,10 @@ impl fmt::Display for AppError {
         match self {
             AppError::BadRequest(message) => write!(formatter, "{message}"),
             AppError::FileTooLarge { max_bytes } => {
-                write!(formatter, "File is too large. Maximum size is {max_bytes} bytes.")
+                write!(
+                    formatter,
+                    "File is too large. Maximum size is {max_bytes} bytes."
+                )
             }
             AppError::Io(error) => write!(formatter, "{error}"),
             AppError::LockFailed(name) => write!(formatter, "Internal state lock failed: {name}"),

@@ -2,15 +2,14 @@ pub mod routes;
 pub mod session;
 pub mod upload;
 
-use crate::{
-    errors::AppError,
-    network::local_ip::detect_local_ip,
-    storage,
-};
+use crate::{errors::AppError, network::local_ip::detect_local_ip, storage};
 use serde::Serialize;
 use std::{
     path::PathBuf,
-    sync::{Arc, Mutex, RwLock},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex, RwLock,
+    },
     time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::{AppHandle, Emitter};
@@ -67,6 +66,32 @@ pub enum ReceivedKind {
     File,
     Image,
     Text,
+    Video,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ReceivedKind;
+
+    #[test]
+    fn received_kind_serializes_for_frontend() {
+        assert_eq!(
+            serde_json::to_string(&ReceivedKind::Text).expect("text"),
+            "\"text\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ReceivedKind::Image).expect("image"),
+            "\"image\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ReceivedKind::Video).expect("video"),
+            "\"video\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ReceivedKind::File).expect("file"),
+            "\"file\""
+        );
+    }
 }
 
 pub struct AppState {
@@ -74,6 +99,7 @@ pub struct AppState {
     session: RwLock<Session>,
     received: RwLock<Vec<ReceivedItem>>,
     app_handle: Mutex<Option<AppHandle>>,
+    id_counter: AtomicU64,
 }
 
 impl AppConfig {
@@ -103,6 +129,7 @@ impl AppState {
             session: RwLock::new(Session::new(config.ttl_secs, 0)),
             received: RwLock::new(Vec::new()),
             app_handle: Mutex::new(None),
+            id_counter: AtomicU64::new(1),
             config,
         })
     }
@@ -157,6 +184,11 @@ impl AppState {
         }
 
         Ok(())
+    }
+
+    pub fn next_received_id(&self, prefix: &str) -> String {
+        let counter = self.id_counter.fetch_add(1, Ordering::Relaxed);
+        format!("{prefix}-{}-{counter}", now_epoch_secs())
     }
 
     pub fn desktop_state(&self) -> Result<DesktopState, AppError> {

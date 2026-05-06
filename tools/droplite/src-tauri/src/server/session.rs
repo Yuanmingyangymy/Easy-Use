@@ -53,7 +53,10 @@ mod tests {
         let session = Session::for_test("abc".to_string(), now, now + 60, 0);
 
         assert!(session.validate("abc").is_ok());
-        assert!(matches!(session.validate("wrong"), Err(AppError::TokenInvalid)));
+        assert!(matches!(
+            session.validate("wrong"),
+            Err(AppError::TokenInvalid)
+        ));
     }
 
     #[test]
@@ -61,6 +64,9 @@ mod tests {
         let now = now_epoch_secs();
         let session = Session::for_test("abc".to_string(), now - 20, now - 10, 0);
 
-        assert!(matches!(session.validate("abc"), Err(AppError::SessionExpired)));
+        assert!(matches!(
+            session.validate("abc"),
+            Err(AppError::SessionExpired)
+        ));
     }
 }

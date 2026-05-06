@@ -3,6 +3,7 @@ pub mod network;
 pub mod security;
 pub mod server;
 pub mod storage;
+use tauri::Manager;
 
 use std::sync::Arc;
 

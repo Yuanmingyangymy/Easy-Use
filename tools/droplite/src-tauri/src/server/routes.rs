@@ -8,15 +8,19 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use tokio::{fs, io::AsyncWriteExt};
+use tokio::fs;
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::{
     errors::AppError,
-    storage::filename::{sanitize_filename, unique_path},
+    storage::filename::{unique_path, unique_temp_path, upload_filename},
 };
 
-use super::{now_epoch_secs, upload::ensure_upload_size, AppState, ReceivedItem, ReceivedKind};
+use super::{
+    now_epoch_secs,
+    upload::{ensure_upload_size, rename_complete_upload, LimitedFileWriter},
+    AppState, ReceivedItem, ReceivedKind,
+};
 
 #[derive(Deserialize)]
 struct AuthQuery {
@@ -49,11 +53,22 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(upload_page))
         .route("/api/session", get(session_info))
-        .route("/api/upload/text", post(upload_text).options(options_handler))
-        .route("/api/upload/file", post(upload_file).options(options_handler))
+        .route(
+            "/api/upload/text",
+            post(upload_text).options(options_handler),
+        )
+        .route(
+            "/api/upload/file",
+            post(upload_file).options(options_handler),
+        )
         .route("/*path", options(options_handler))
         .layer(axum::extract::DefaultBodyLimit::max(max_body))
-        .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any),
+        )
         .with_state(state)
 }
 
@@ -98,7 +113,7 @@ async fn upload_text(
     ensure_upload_size(0, text.as_bytes().len(), state.config().max_upload_bytes)?;
 
     let item = ReceivedItem {
-        id: format!("text-{}", now_epoch_secs()),
+        id: state.next_received_id("text"),
         kind: ReceivedKind::Text,
         name: "Text".to_string(),
         text: Some(text),
@@ -131,54 +146,91 @@ async fn upload_file(
         .await
         .map_err(|error| AppError::Multipart(error.to_string()))?
     {
-        let original_name = field.file_name().unwrap_or("upload.bin").to_string();
-        let safe_name = sanitize_filename(&original_name);
+        let original_name = field.file_name().map(|value| value.to_string());
         let content_type = field.content_type().map(|value| value.to_string());
-        let target_path = unique_path(&state.config().receive_dir, &safe_name);
-        let mut output = fs::File::create(&target_path).await?;
+        let received_at = now_epoch_secs();
+        let display_name = upload_filename(
+            original_name.as_deref(),
+            content_type.as_deref(),
+            received_at,
+        );
+        let target_path = unique_path(&state.config().receive_dir, &display_name);
+        let temp_path = unique_temp_path(&state.config().receive_dir);
+        let mut output = LimitedFileWriter::create(temp_path.clone()).await?;
         let mut total_size = 0_u64;
 
-        while let Some(chunk) = field
-            .chunk()
-            .await
-            .map_err(|error| AppError::Multipart(error.to_string()))?
-        {
-            total_size = match ensure_upload_size(total_size, chunk.len(), state.config().max_upload_bytes) {
-                Ok(size) => size,
+        loop {
+            let chunk = match field.chunk().await {
+                Ok(Some(chunk)) => chunk,
+                Ok(None) => break,
                 Err(error) => {
-                    drop(output);
-                    let _ = fs::remove_file(&target_path).await;
-                    return Err(error);
+                    output.abort().await;
+                    return Err(AppError::Multipart(format!(
+                        "Upload was interrupted before the file was fully received: {error}"
+                    )));
                 }
             };
-            output.write_all(&chunk).await?;
+
+            if let Err(error) = output
+                .write_chunk(&chunk, state.config().max_upload_bytes)
+                .await
+            {
+                output.abort().await;
+                return Err(error);
+            }
+            total_size = total_size.saturating_add(chunk.len() as u64);
         }
 
-        output.flush().await?;
+        let written_size = output.finish().await?;
+        if written_size != total_size {
+            let _ = fs::remove_file(&temp_path).await;
+            return Err(AppError::Io(std::io::Error::new(
+                std::io::ErrorKind::WriteZero,
+                "Saved file size did not match uploaded bytes.",
+            )));
+        }
+
+        rename_complete_upload(&temp_path, &target_path).await?;
+        let saved_size = fs::metadata(&target_path).await?.len();
+        if saved_size != written_size {
+            let _ = fs::remove_file(&target_path).await;
+            return Err(AppError::Io(std::io::Error::new(
+                std::io::ErrorKind::WriteZero,
+                "Saved file size did not match uploaded bytes.",
+            )));
+        }
 
         let mime = content_type.or_else(|| {
             mime_guess::from_path(&target_path)
                 .first()
                 .map(|value| value.essence_str().to_string())
         });
-        let kind = if mime.as_deref().is_some_and(|value| value.starts_with("image/")) {
+        let kind = if mime
+            .as_deref()
+            .is_some_and(|value| value.starts_with("image/"))
+        {
             ReceivedKind::Image
+        } else if mime
+            .as_deref()
+            .is_some_and(|value| value.starts_with("video/"))
+        {
+            ReceivedKind::Video
         } else {
             ReceivedKind::File
         };
         let item = ReceivedItem {
-            id: format!("file-{}-{}", now_epoch_secs(), received_items.len()),
+            id: state.next_received_id("file"),
             kind,
             name: target_path
                 .file_name()
                 .and_then(|value| value.to_str())
-                .unwrap_or(&safe_name)
+                .unwrap_or(&display_name)
                 .to_string(),
             text: None,
             path: Some(target_path.display().to_string()),
-            size: Some(total_size),
+            size: Some(saved_size),
             mime,
-            received_at: now_epoch_secs(),
+            received_at,
         };
 
         state.add_received(item.clone())?;
@@ -258,11 +310,28 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
       const sendText = document.getElementById("sendText");
       const sendFiles = document.getElementById("sendFiles");
       const dropZone = document.getElementById("dropZone");
+      let maxUploadBytes = Number.POSITIVE_INFINITY;
 
       function setStatus(message, type) {
         statusBox.hidden = false;
         statusBox.className = "status " + type;
         statusBox.textContent = message;
+      }
+
+      function formatBytes(bytes) {
+        if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + " MB";
+        if (bytes >= 1024) return (bytes / 1024).toFixed(1) + " KB";
+        return bytes + " B";
+      }
+
+      async function parseResponse(response) {
+        const text = await response.text();
+        if (!text) return {};
+        try {
+          return JSON.parse(text);
+        } catch (_) {
+          return { error: text };
+        }
       }
 
       function disableUploads(disabled) {
@@ -289,6 +358,7 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         }
 
         const expiresAt = new Date(data.expires_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        maxUploadBytes = data.max_upload_bytes;
         sessionText.textContent = "Connected to " + data.device_name + ". Session expires at " + expiresAt + ".";
       }
 
@@ -306,7 +376,7 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text })
           });
-          const data = await response.json();
+          const data = await parseResponse(response);
           if (!response.ok) throw new Error(data.error || "Send failed.");
           textInput.value = "";
           setStatus("Sent successfully", "ok");
@@ -323,8 +393,14 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
           setStatus("Choose files first.", "error");
           return;
         }
+        const oversized = files.find((file) => file.size > maxUploadBytes);
+        if (oversized) {
+          setStatus(oversized.name + " is too large. Maximum size is " + formatBytes(maxUploadBytes) + ".", "error");
+          return;
+        }
 
         sendFiles.disabled = true;
+        setStatus("Uploading... Keep this page open until it finishes.", "ok");
         const form = new FormData();
         for (const file of files) form.append("files", file, file.name);
 
@@ -333,7 +409,7 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
             method: "POST",
             body: form
           });
-          const data = await response.json();
+          const data = await parseResponse(response);
           if (!response.ok) throw new Error(data.error || "Upload failed.");
           filesInput.value = "";
           setStatus("Sent successfully", "ok");
