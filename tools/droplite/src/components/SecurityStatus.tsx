@@ -12,6 +12,9 @@ export function SecurityStatus({ session }: SecurityStatusProps) {
       <div>
         <strong>Local network only</strong>
         <p>{session.security_note}</p>
+        <p className="connection-hint">
+          If your phone cannot open the QR link on Windows, set this Wi-Fi network to Private and allow firewall access.
+        </p>
       </div>
     </section>
   );

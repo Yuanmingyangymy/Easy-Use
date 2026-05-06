@@ -41,6 +41,12 @@ The token is present in the QR URL. Anyone who can view or capture that URL duri
 
 DropLite 0.1 does not authenticate individual phone devices. The token is the session gate.
 
+## Windows Private Network Note
+
+On Windows, a Wi-Fi network marked as Public may block phones from opening the DropLite QR link, even when both devices are on the same Wi-Fi. Marking a trusted home or office Wi-Fi as Private allows local devices to reach services running on the computer.
+
+Only use Private for networks you trust. Do not mark public, hotel, conference, or cafe Wi-Fi as Private just to use DropLite. If Windows Firewall prompts for access, allow DropLite on private networks only.
+
 ## When It Is Reasonable To Use
 
 DropLite 0.1 is reasonable on:

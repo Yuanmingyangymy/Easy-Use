@@ -122,7 +122,29 @@ Run frontend tests:
 npm test
 ```
 
+Run frontend type checks:
+
+```bash
+npm run typecheck
+```
+
 The Rust tests cover token generation, token validation, token expiry, filename sanitization, unique save path behavior, and upload size limits.
+
+## Manual Acceptance
+
+Before a release, verify the MVP with real devices:
+
+- Start DropLite with `npm run tauri:dev`.
+- Confirm the desktop app opens and shows a QR code.
+- Put the phone and computer on the same trusted Wi-Fi.
+- On Windows, set the current Wi-Fi network to Private and allow firewall access if prompted.
+- Scan the QR code from the phone and open the upload page.
+- Send text and confirm it appears in Recently received.
+- Send a JPG or PNG image and confirm the desktop list shows an image record and thumbnail.
+- Send a small MP4 video under 50 MB and confirm the saved video plays through completely.
+- Send a PDF or ZIP and confirm it appears as a file record and opens from the receive folder.
+- Send two files with the same name and confirm DropLite creates `file (1).ext` instead of overwriting.
+- Let the token expire and confirm uploads are rejected with a friendly message.
 
 ## FAQ
 
@@ -145,6 +167,16 @@ By default, files are saved to `Downloads/DropLite`. If the downloads directory 
 ### Is local HTTP encrypted?
 
 No. This MVP is intended for trusted local networks. Avoid public or untrusted Wi-Fi.
+
+### My phone cannot open the QR link. What should I check?
+
+Make sure the phone and computer are connected to the same Wi-Fi. Avoid guest Wi-Fi because it often blocks devices from reaching each other.
+
+Turn off VPNs on the phone and computer, then try again.
+
+On Windows, confirm the current Wi-Fi is set to Private network. If Windows Firewall asks whether to allow DropLite, allow access for private networks. Do not switch a public or untrusted Wi-Fi to Private just to use DropLite.
+
+DropLite 0.1 uses local-network HTTP, so it is not recommended on public or untrusted Wi-Fi.
 
 ## Roadmap
 
