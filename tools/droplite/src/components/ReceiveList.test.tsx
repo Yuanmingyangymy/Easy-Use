@@ -1,12 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "../test/test-utils";
 import { ReceiveList } from "./ReceiveList";
-import { I18nProvider } from "../i18n";
-
-function renderWithI18n(ui: ReactElement) {
-  return render(<I18nProvider>{ui}</I18nProvider>);
-}
 
 describe("ReceiveList", () => {
   beforeEach(() => {
@@ -14,12 +8,12 @@ describe("ReceiveList", () => {
   });
 
   it("renders an empty state", () => {
-    renderWithI18n(<ReceiveList items={[]} onOpenFolder={() => undefined} />);
+    render(<ReceiveList items={[]} onOpenFolder={() => undefined} />);
     expect(screen.getByText("No account. No cloud. No history.")).toBeInTheDocument();
   });
 
   it("renders received text", () => {
-    renderWithI18n(
+    render(
       <ReceiveList
         onOpenFolder={() => undefined}
         items={[
@@ -39,7 +33,7 @@ describe("ReceiveList", () => {
   });
 
   it("renders an image item with a thumbnail", () => {
-    renderWithI18n(
+    render(
       <ReceiveList
         onOpenFolder={() => undefined}
         items={[
@@ -67,7 +61,7 @@ describe("ReceiveList", () => {
   });
 
   it("shows a custom placeholder when an image thumbnail fails", () => {
-    renderWithI18n(
+    render(
       <ReceiveList
         onOpenFolder={() => undefined}
         items={[
@@ -89,7 +83,7 @@ describe("ReceiveList", () => {
   });
 
   it("renders a video item as a received file card", () => {
-    renderWithI18n(
+    render(
       <ReceiveList
         onOpenFolder={() => undefined}
         items={[
@@ -113,7 +107,7 @@ describe("ReceiveList", () => {
   });
 
   it("renders a normal file item with name size and time", () => {
-    renderWithI18n(
+    render(
       <ReceiveList
         onOpenFolder={() => undefined}
         items={[

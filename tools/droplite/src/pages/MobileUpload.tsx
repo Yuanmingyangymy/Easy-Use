@@ -12,9 +12,9 @@ export function MobileUpload() {
         <button type="button">{t("sendVideo")}</button>
         <button type="button">{t("sendFile")}</button>
       </div>
-      <input aria-label={t("sendPhoto")} type="file" accept="image/*" multiple />
-      <input aria-label={t("sendVideo")} type="file" accept="video/*" multiple />
-      <input aria-label={t("sendFile")} type="file" multiple />
+      <input aria-label={t("selectPhotoFiles")} type="file" accept="image/*" multiple />
+      <input aria-label={t("selectVideoFiles")} type="file" accept="video/*" multiple />
+      <input aria-label={t("selectFiles")} type="file" multiple />
     </main>
   );
 }
