@@ -35,6 +35,13 @@ tmp/
 temp/
 *.tmp
 *.bak
+*.part
+
+# Release assets
+SHA256SUMS.txt
+*.msi
+*-setup.exe
+received/
 
 # Environment
 .env
