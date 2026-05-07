@@ -1,0 +1,46 @@
+name: DropLite CI
+
+on:
+  pull_request:
+    paths:
+      - "tools/droplite/**"
+      - ".github/workflows/droplite-ci.yml"
+  push:
+    paths:
+      - "tools/droplite/**"
+      - ".github/workflows/droplite-ci.yml"
+
+jobs:
+  validate:
+    name: Test DropLite
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: tools/droplite
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tools/droplite/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Run frontend typecheck
+        run: npm run typecheck
+
+      - name: Run Rust tests
+        run: cargo test
+        working-directory: tools/droplite/src-tauri

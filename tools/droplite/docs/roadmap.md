@@ -1,11 +1,13 @@
 # DropLite Roadmap
 
-## 0.1 Phone to Desktop Drop
+## v0.1.0 Preview
 
 - QR connection flow.
 - Temporary session token.
 - Phone browser upload page.
+- Phone to desktop transfer.
 - Text, image, video, and file upload.
+- Take photo and send.
 - Separate phone choices for text, photos, videos, and files.
 - English and Simplified Chinese UI.
 - Timestamp-based received filenames.
@@ -13,46 +15,37 @@
 - Local receive directory.
 - Basic desktop receive list.
 - Honest local HTTP security model.
+- Windows Preview build.
 
-## 0.2 Desktop to Phone Drop
+## v0.2
 
-- Select text or files on the desktop.
-- Phone page can download from the desktop.
-- Keep the same temporary-session model.
+- Desktop to phone transfer.
+- Better receive and download flow on mobile.
+- More polished settings.
+- Optional keep original filename behavior.
+- Better onboarding and diagnostics.
 
-## 0.3 Bidirectional Transfer
+## v0.3
 
-- Combine phone-to-desktop and desktop-to-phone flows.
-- Keep transfers temporary and explicit.
-- Avoid chat, history, or sync behavior.
-
-## 0.4 Tray Mode
-
-- Optional tray presence for quick access.
-- Clear indication when a session is active.
-- No hidden background receiving without user awareness.
-
-## 0.5 Packaging
-
-- More complete Windows, macOS, and Linux packaging.
-- Release checklist and signed build guidance where practical.
-- Optional code signing.
-- GitHub Release packaging.
-- Optional auto-update after a release process exists.
+- Cross-platform packaging for macOS and Linux.
+- GitHub Actions release pipeline.
+- Code signing research.
+- Auto-update research.
 
 ## Later Product Polish
 
+- Bidirectional transfer polish after desktop to phone exists.
+- Optional tray presence for quick access.
 - More complete settings page.
-- Optional setting to preserve original filenames.
 - Better thumbnail generation for very large images.
 
-## 0.6 Optional End-to-End Encryption
+## Optional Security Enhancements
 
 - Explore pairing-based encryption.
 - Keep security claims tied to the actual implementation.
 - Preserve the simple QR workflow.
 
-## 0.7 Optional Relay Mode
+## Optional Relay Mode
 
 - Investigate cross-network transfer only as an explicit optional mode.
 - The UI must clearly state when data leaves the local network.

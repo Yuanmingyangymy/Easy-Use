@@ -10,13 +10,13 @@ Easy-Use exists to make practical utilities feel simple, trustworthy, and pleasa
 
 | Tool | Status | Purpose |
 | --- | --- | --- |
-| [DropLite](tools/droplite/README.md) | MVP 0.1 | Send text, images, and files from a phone browser to a desktop over the local network. |
+| [DropLite](tools/droplite/README.md) | v0.1.0 Preview | Send text, photos, videos, and files from a phone browser to a desktop over the local network. |
 
 ## DropLite
 
 DropLite is the first Easy-Use tool. It is a minimal, account-free, local-network-first temporary drop tool for moving content from a phone to a computer.
 
-Open DropLite on the computer, scan the QR code with a phone, then send text, images, or files through the phone browser. No phone app, no cloud service, no account, and no transfer history.
+Open DropLite on the computer, scan the QR code with a phone, then send text, photos, videos, or files through the phone browser. No phone app, no cloud service, no account, and no transfer history.
 
 ## Design Principles
 
@@ -39,7 +39,7 @@ To work on DropLite:
 ```bash
 cd tools/droplite
 npm install
-npm run tauri dev
+npm run tauri:dev
 ```
 
 ## Contributing

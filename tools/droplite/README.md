@@ -1,8 +1,16 @@
 # DropLite
 
-DropLite is the first tool in the Easy-Use collection. It is a minimal, account-free, local-first temporary drop tool for sending text, images, and files from a phone browser to a desktop.
+DropLite is the first tool in the Easy-Use collection. It is a minimal, account-free, local-first temporary drop tool for sending text, photos, videos, and files from a phone browser to a desktop.
 
 No account. No cloud. Local-first. Temporary session. Open source. Phone browser to desktop.
+
+## v0.1.0 Preview
+
+DropLite v0.1.0 Preview is the first usable preview release for sending text, photos, videos, and files from a phone browser to a desktop over the local network.
+
+DropLite v0.1.0 Preview 是首个可用预览版，支持通过手机浏览器将文字、图片、视频和文件在本地网络内投递到电脑。
+
+This is a preview release, not a final stable release. It currently supports phone to desktop transfer only, uses local-network HTTP, does not require an account, does not use cloud services, and does not persist transfer history after the app closes.
 
 ## Screenshot
 
@@ -24,13 +32,14 @@ Product screenshots will be added after the first packaged preview build. The MV
 - Uses a random session token with a default 10-minute expiry.
 - Does not use accounts, cloud services, telemetry, ads, or transfer history.
 
-## MVP 0.1 Scope
+## v0.1.0 Preview Scope
 
 Supported:
 
 - Phone to desktop transfer.
 - Text upload.
 - Image upload.
+- Take photo and send.
 - Video upload.
 - File upload.
 - Drag-and-drop upload where the mobile browser supports it.
@@ -38,6 +47,8 @@ Supported:
 - Token validation and expiry.
 - Single-file upload limit of 200 MB by default.
 - Safe filename handling and non-overwriting save behavior.
+- English and Simplified Chinese UI.
+- Windows preview build.
 
 Not supported in this MVP:
 
@@ -54,6 +65,28 @@ Not supported in this MVP:
 - Multi-user rooms.
 - Transfer history.
 - Complex settings.
+
+## For Testers on Windows
+
+1. Download the installer from the GitHub Release page.
+2. Install and open DropLite.
+3. If Windows shows a warning, it is because this preview build is not code signed yet.
+4. Make sure your phone and computer are on the same Wi-Fi.
+5. On Windows, set this Wi-Fi network to Private.
+6. If the firewall asks for permission, allow Private networks.
+7. Scan the QR code with your phone browser.
+8. Send text, photos, videos, or files.
+
+## Windows 试用说明
+
+1. 从 GitHub Release 页面下载安装包。
+2. 安装并打开 DropLite。
+3. 如果 Windows 出现安全提醒，是因为当前预览版还没有代码签名。
+4. 确认手机和电脑连接到同一个 Wi-Fi。
+5. 在 Windows 中将当前 Wi-Fi 设置为“专用网络”。
+6. 如果防火墙请求权限，请允许“专用网络”访问。
+7. 用手机浏览器扫码。
+8. 发送文字、图片、视频或文件。
 
 ## Security and Privacy
 
@@ -140,6 +173,10 @@ npm run typecheck
 
 The Rust tests cover token generation, token validation, token expiry, timestamp-based filename generation, filename sanitization, unique save path behavior, received item kinds, and upload size limits.
 
+## Release Notes
+
+See [CHANGELOG.md](CHANGELOG.md) and [docs/release-notes-v0.1.0-preview.md](docs/release-notes-v0.1.0-preview.md).
+
 ## Language
 
 DropLite currently supports English and Simplified Chinese. The desktop app follows the system or browser language by default, falls back to English, and lets the user switch language in the header. The selected language is stored locally in `localStorage`.
@@ -221,6 +258,10 @@ Check that Wi-Fi is stable, turn off VPNs, and scan a fresh QR code. If the issu
 No. DropLite may create hidden `.droplite-upload-*.part` files while an upload is in progress, but a successful upload is renamed to the final timestamped name, such as `image-YYYYMMDD-HHMMSS-001.jpg`, `video-YYYYMMDD-HHMMSS-001.mp4`, or `file-YYYYMMDD-HHMMSS-001.pdf`.
 
 If a `.part` file remains, the upload was interrupted or an earlier version hit a cleanup bug. Current builds remove temporary files when uploads fail because of size limits, token expiry, network interruption, or write errors.
+
+### How should I report preview issues?
+
+Please include the DropLite version, Windows version, phone OS and browser, Wi-Fi or firewall notes, file type and size, whether the first upload succeeded, and the exact steps to reproduce the issue.
 
 ## Roadmap
 
