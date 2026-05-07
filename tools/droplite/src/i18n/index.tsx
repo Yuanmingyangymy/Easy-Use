@@ -4,10 +4,11 @@ import { zhCN } from "./locales/zh-CN";
 
 export type Language = "en" | "zh-CN";
 type TranslationKey = keyof typeof en;
+type TranslationDictionary = Record<TranslationKey, string>;
 
 const STORAGE_KEY = "droplite.language";
 
-const dictionaries: Record<Language, typeof en> = {
+const dictionaries: Record<Language, TranslationDictionary> = {
   en,
   "zh-CN": zhCN
 };
