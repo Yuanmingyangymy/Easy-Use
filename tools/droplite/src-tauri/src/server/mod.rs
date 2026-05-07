@@ -280,10 +280,13 @@ pub async fn start(state: Arc<AppState>) -> Result<(), AppError> {
     Ok(())
 }
 
+#[cfg(debug_assertions)]
 pub fn debug_log(message: &str) {
-    #[cfg(debug_assertions)]
     eprintln!("[droplite] {message}");
 }
+
+#[cfg(not(debug_assertions))]
+pub fn debug_log(_message: &str) {}
 
 pub fn now_epoch_secs() -> u64 {
     SystemTime::now()

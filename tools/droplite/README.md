@@ -144,7 +144,7 @@ Build the Tauri app:
 npm run tauri build
 ```
 
-Local builds generate installable or runnable desktop artifacts under `src-tauri/target/release/bundle/`. The exact installer path depends on the platform and Tauri CLI output.
+Local builds generate installable or runnable desktop artifacts under `src-tauri/target/release/bundle/`. The v0.1.0 Preview build targets a Windows NSIS installer by default. MSI packaging is not enabled by default because it requires the WiX toolchain and can fail on first build if the WiX download times out.
 
 Current local builds are not code signed and are not official releases. On Windows, the first run may show a security warning, and the firewall may ask whether to allow local network access. For DropLite's LAN workflow, allow private network access only on trusted networks.
 
