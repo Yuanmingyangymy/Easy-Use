@@ -34,10 +34,11 @@ This is a preview release. It currently supports phone to desktop transfer only.
 - On Windows, set the current trusted Wi-Fi network to Private and allow firewall access for private networks.
 - This preview build is not code signed, so Windows may show a warning.
 - Tested primarily on Windows.
+- Normal preview launches should show only the DropLite GUI, not an extra black console window.
 
 ### Feedback wanted
 
-Please include your Windows version, phone OS and browser, network setup, file type and size, whether the first upload succeeded, and clear reproduction steps.
+Please include your Windows version, phone OS and browser, network setup, file type and size, whether the first upload succeeded, and clear reproduction steps. If an extra console window appears, note whether you launched DropLite from the installer, Start menu, installation folder, or bare build artifact.
 
 ## 简体中文
 
@@ -73,7 +74,8 @@ DropLite v0.1.0 Preview 是首个可用预览版，支持通过手机浏览器�
 - Windows 用户需要将当前可信 Wi-Fi 设置为“专用网络”，并允许防火墙的专用网络访问。
 - 当前预览版未做代码签名，Windows 可能出现安全提醒。
 - 本预览版主要在 Windows 上测试。
+- 正常启动时应该只显示 DropLite GUI，不应该额外弹出黑色控制台窗口。
 
 ### 反馈时请提供
 
-请尽量附上 Windows 版本、手机系统和浏览器、网络环境、文件类型和大小、第一次上传是否成功，以及清晰的复现步骤。
+请尽量附上 Windows 版本、手机系统和浏览器、网络环境、文件类型和大小、第一次上传是否成功，以及清晰的复现步骤。如果出现额外黑色控制台窗口，请说明你是通过安装包、开始菜单、安装目录，还是直接运行裸构建产物启动的。

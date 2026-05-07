@@ -77,6 +77,10 @@ Not supported in this MVP:
 7. Scan the QR code with your phone browser.
 8. Send text, photos, videos, or files.
 
+Use the installer from the Release assets for normal testing. The bare `src-tauri/target/release/droplite.exe` is a build artifact for developers and should not be treated as the primary distribution file.
+
+DropLite is a GUI app. A normal preview build should not open an extra black console window. If a console window appears, please report whether you launched DropLite from the installer, Start menu, installation folder, or the bare build artifact.
+
 ## Windows 试用说明
 
 1. 从 GitHub Release 页面下载安装包。
@@ -87,6 +91,10 @@ Not supported in this MVP:
 6. 如果防火墙请求权限，请允许“专用网络”访问。
 7. 用手机浏览器扫码。
 8. 发送文字、图片、视频或文件。
+
+普通试用请使用 Release 附件中的安装包。`src-tauri/target/release/droplite.exe` 是开发构建产物，不建议作为主要分发文件。
+
+DropLite 是 GUI 应用。正常的预览版启动时不应该额外弹出黑色控制台窗口。如果出现黑窗，请反馈你是通过安装包、开始菜单、安装目录，还是直接运行裸 exe 启动的。
 
 ## Security and Privacy
 
@@ -144,7 +152,7 @@ Build the Tauri app:
 npm run tauri build
 ```
 
-Local builds generate installable or runnable desktop artifacts under `src-tauri/target/release/bundle/`. The v0.1.0 Preview build targets a Windows NSIS installer by default. MSI packaging is not enabled by default because it requires the WiX toolchain and can fail on first build if the WiX download times out.
+Local builds generate installable desktop artifacts under `src-tauri/target/release/bundle/`. The v0.1.0 Preview build targets a Windows NSIS installer by default, usually under `src-tauri/target/release/bundle/nsis/`. MSI packaging is not enabled by default because it requires the WiX toolchain and can fail on first build if the WiX download times out.
 
 Current local builds are not code signed and are not official releases. On Windows, the first run may show a security warning, and the firewall may ask whether to allow local network access. For DropLite's LAN workflow, allow private network access only on trusted networks.
 

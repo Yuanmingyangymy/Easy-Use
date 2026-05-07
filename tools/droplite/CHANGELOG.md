@@ -43,6 +43,7 @@ DropLite v0.1.0 Preview 是首个可用预览版，支持通过手机浏览器�
 - Windows users may need to set Wi-Fi to Private network.
 - App is not code signed yet, so Windows may show a warning.
 - Tested primarily on Windows for this preview.
+- Normal Windows preview launches should show only the DropLite GUI, not an extra console window.
 
 ### Feedback wanted
 
@@ -52,3 +53,4 @@ DropLite v0.1.0 Preview 是首个可用预览版，支持通过手机浏览器�
 - Whether first upload succeeds.
 - Whether QR page opens smoothly.
 - Whether firewall/network setup is confusing.
+- If an extra console window appears, whether DropLite was launched from the installer, Start menu, installation folder, or bare build artifact.
