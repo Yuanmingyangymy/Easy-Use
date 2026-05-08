@@ -92,15 +92,18 @@ Potential upgrades:
 
 ## v0.2 Outbox Security Considerations
 
-Status: Phase 1 backend model implemented on the `feat/droplite-desktop-to-phone` branch. The desktop send UI and mobile receive UI are still not implemented.
+Status: Phase 1 backend model and Phase 2 desktop send UI implemented on the `feat/droplite-desktop-to-phone` branch. The mobile receive UI is still not implemented.
 
 The v0.2 desktop-to-phone flow keeps the same Local-first / No account / No cloud boundary:
 
 - Every outbox list, acknowledgement, and download API validates the current token.
 - Expired tokens are rejected for outbox list and download access.
 - Refreshing the session clears the current outbox so old pending items are not available under a new pairing context.
-- Files must come from explicit desktop user actions, such as choosing a file or dragging it into DropLite. Phase 1 exposes only backend methods; UI wiring comes later.
+- Files must come from explicit desktop user actions, such as choosing a file or dragging it into DropLite.
+- Adding outbox items is available only through Tauri commands inside the desktop app, not through a LAN HTTP endpoint.
+- The phone-side HTTP API can list, download, and acknowledge outbox items with a valid token, but it cannot add new outbox items.
 - The backend stores safe server-side references and never exposes arbitrary local paths to the phone.
+- The desktop outbox panel also renders only display names and metadata, not local absolute paths.
 - Download endpoints resolve only files registered in the current in-memory outbox.
 - Filenames used for downloads are sanitized before being placed in `Content-Disposition`.
 - Text sent to the phone should remain memory-only and should disappear when the app closes or the session is refreshed.

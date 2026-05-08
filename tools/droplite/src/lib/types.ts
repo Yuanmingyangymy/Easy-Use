@@ -1,4 +1,6 @@
 export type ReceivedKind = "text" | "file" | "image" | "video";
+export type OutboxKind = "text" | "file" | "image" | "video";
+export type OutboxStatus = "pending" | "downloaded" | "expired";
 
 export interface ReceivedItem {
   id: string;
@@ -28,4 +30,15 @@ export interface SessionView {
 export interface DesktopState {
   session: SessionView;
   received: ReceivedItem[];
+}
+
+export interface OutboxItem {
+  id: string;
+  kind: OutboxKind;
+  displayName: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  createdAt: string;
+  status: OutboxStatus;
+  content?: string;
 }

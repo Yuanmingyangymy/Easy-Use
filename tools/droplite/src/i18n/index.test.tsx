@@ -9,6 +9,7 @@ function Probe() {
       <p>{language}</p>
       <p>{t("ready")}</p>
       <button onClick={() => setLanguage("zh-CN")}>zh</button>
+      <p>{t("sendToPhone")}</p>
     </div>
   );
 }
@@ -30,8 +31,10 @@ describe("i18n", () => {
     );
 
     expect(screen.getByText("Ready to receive")).toBeInTheDocument();
+    expect(screen.getByText("Send to phone")).toBeInTheDocument();
     fireEvent.click(screen.getByText("zh"));
     expect(screen.getByText("准备接收")).toBeInTheDocument();
+    expect(screen.getByText("发送到手机")).toBeInTheDocument();
   });
 
   it("adds language to QR URLs", () => {

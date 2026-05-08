@@ -23,6 +23,7 @@ pub enum OutboxContent {
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OutboxItem {
     pub id: String,
     pub kind: OutboxKind,

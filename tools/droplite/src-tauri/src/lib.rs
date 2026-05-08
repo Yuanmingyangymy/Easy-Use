@@ -11,7 +11,7 @@ use tauri::Manager;
 use std::sync::Arc;
 
 #[cfg(not(test))]
-use server::{AppConfig, AppState, DesktopState};
+use server::{outbox::OutboxItem, AppConfig, AppState, DesktopState};
 
 #[cfg(not(test))]
 #[tauri::command]
@@ -34,8 +34,39 @@ async fn open_receive_folder(state: tauri::State<'_, Arc<AppState>>) -> Result<(
 }
 
 #[cfg(not(test))]
+#[tauri::command]
+async fn add_outbox_text(
+    state: tauri::State<'_, Arc<AppState>>,
+    content: String,
+) -> Result<OutboxItem, String> {
+    state
+        .add_outbox_text(content)
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(not(test))]
+#[tauri::command]
+async fn add_outbox_file(
+    state: tauri::State<'_, Arc<AppState>>,
+    path: String,
+) -> Result<OutboxItem, String> {
+    state
+        .add_outbox_file(path.into())
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(not(test))]
+#[tauri::command]
+async fn list_outbox_items(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Vec<OutboxItem>, String> {
+    state.outbox_items().map_err(|error| error.to_string())
+}
+
+#[cfg(not(test))]
 pub fn run() {
     let result = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let config = AppConfig::load()?;
             let state = Arc::new(AppState::new(config)?);
@@ -54,7 +85,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_desktop_state,
             refresh_session,
-            open_receive_folder
+            open_receive_folder,
+            add_outbox_text,
+            add_outbox_file,
+            list_outbox_items
         ])
         .run(tauri::generate_context!());
 

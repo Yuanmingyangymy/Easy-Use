@@ -4,6 +4,7 @@ import type { DesktopState } from "../lib/types";
 import { Header } from "../components/Header";
 import { QRPanel } from "../components/QRPanel";
 import { ReceiveList } from "../components/ReceiveList";
+import { SendToPhonePanel } from "../components/SendToPhonePanel";
 import { SecurityStatus } from "../components/SecurityStatus";
 import { SessionTimer } from "../components/SessionTimer";
 import { useI18n } from "../i18n";
@@ -76,6 +77,7 @@ export function DesktopHome() {
       <div className="workspace">
         <div className="primary-column">
           <QRPanel session={state.session} />
+          <SendToPhonePanel key={state.session.connection_url} />
           <div className="bottom-row">
             <SecurityStatus session={state.session} />
             <SessionTimer expiresAt={state.session.expires_at} />

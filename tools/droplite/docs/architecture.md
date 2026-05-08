@@ -99,7 +99,7 @@ Those additions should remain optional and clearly explained to avoid turning Dr
 
 ## v0.2 Outbox Architecture: Desktop to Phone
 
-Status: Phase 1 backend model implemented on the `feat/droplite-desktop-to-phone` branch. The desktop send UI and mobile receive UI are still not implemented.
+Status: Phase 1 backend model and Phase 2 desktop send UI implemented on the `feat/droplite-desktop-to-phone` branch. The mobile receive UI is still not implemented.
 
 The v0.2 approach keeps the existing local HTTP service and adds an in-memory desktop outbox. Future desktop UI work will add text or files to the Rust backend, the phone page will poll a token-protected outbox endpoint, and the phone will copy text or download files through token-protected routes.
 
@@ -124,6 +124,14 @@ Implemented internal backend methods:
 
 - `add_outbox_text(content)` creates a memory-only text item and rejects empty text.
 - `add_outbox_file(path)` creates a file, image, or video item from a backend-only canonical path, rejects directories and missing files, and never returns the local path to the phone.
+
+Desktop UI integration:
+
+- The desktop WebView calls Tauri commands, not public HTTP endpoints, to add outbox items.
+- `add_outbox_text` adds text entered in the desktop panel.
+- `add_outbox_file` adds file paths selected by the native Tauri dialog or received from Tauri file drop events.
+- `list_outbox_items` lets the desktop panel show the current memory-only outbox.
+- File paths are used only as command inputs and backend references. The rendered outbox list shows display names, type, size, time, and status, but not absolute paths.
 
 Polling is preferred over WebSocket for v0.2 because it is simpler, broadly compatible with phone browsers, easier to debug, and less likely to destabilize the v0.1 upload path. A future version can revisit WebSocket if the product need becomes clear.
 

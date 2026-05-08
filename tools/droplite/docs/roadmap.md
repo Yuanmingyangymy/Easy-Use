@@ -19,11 +19,13 @@
 
 ## v0.2 Planned: Desktop to Phone Transfer
 
-Status: Phase 1 backend model implemented on the v0.2 feature branch. Full v0.2 is not complete yet, and the desktop send UI and mobile receive UI are still planned.
+Status: Phase 1 backend model and Phase 2 desktop send UI implemented on the v0.2 feature branch. Full v0.2 is not complete yet, and the mobile receive UI is still planned.
 
 - Desktop to phone transfer.
 - In-memory outbox backend model.
 - Token-protected outbox list, download, and ack APIs.
+- Desktop `Send to phone` panel.
+- Native file picker and Tauri file drop support for adding outbox files.
 - Better receive and download flow on mobile.
 - More polished settings.
 - Optional keep original filename behavior.

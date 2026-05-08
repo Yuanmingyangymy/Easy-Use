@@ -37,5 +37,20 @@ export const zhCN = {
   refreshFailed: "无法刷新会话。",
   language: "语言",
   english: "English",
-  chinese: "简体中文"
+  chinese: "简体中文",
+  sendToPhone: "发送到手机",
+  chooseFiles: "选择文件",
+  dropFilesHereToSendToPhone: "拖拽文件到这里发送到手机",
+  typeTextToSendToPhone: "输入要发送到手机的文字",
+  pendingForPhone: "等待手机接收",
+  addedToPhoneOutbox: "已加入手机接收列表",
+  failedToAddText: "文字加入失败",
+  failedToAddFile: "文件加入失败",
+  emptyTextCannotBeSent: "不能发送空文字",
+  foldersAreNotSupported: "暂不支持文件夹",
+  waitingForPhoneToReceive: "等待手机接收",
+  desktopToPhonePreview: "电脑传手机功能正在预览中",
+  sendToPhoneDescription: "将文字或文件发送到已连接的手机。手机可在当前会话中复制或下载。",
+  mobileReceiveComingNext: "手机端接收界面将在下一阶段完成。",
+  downloaded: "已下载"
 } as const;

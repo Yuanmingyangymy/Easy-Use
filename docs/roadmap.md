@@ -9,7 +9,8 @@ DropLite v0.1.0 Preview has been released. DropLite v0.2 is now on a feature bra
 Current v0.2 status:
 
 - Phase 1 backend outbox model is implemented on the v0.2 branch.
-- The desktop send UI and mobile receive UI are still planned.
+- Phase 2 desktop send UI is implemented on the v0.2 branch.
+- The mobile receive UI is still planned.
 
 Planned v0.2 direction:
 

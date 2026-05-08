@@ -38,5 +38,21 @@ export const en = {
   refreshFailed: "Could not refresh session.",
   language: "Language",
   english: "English",
-  chinese: "简体中文"
+  chinese: "简体中文",
+  sendToPhone: "Send to phone",
+  chooseFiles: "Choose files",
+  dropFilesHereToSendToPhone: "Drop files here to send to phone",
+  typeTextToSendToPhone: "Type text to send to phone",
+  pendingForPhone: "Pending for phone",
+  addedToPhoneOutbox: "Added to phone outbox",
+  failedToAddText: "Failed to add text",
+  failedToAddFile: "Failed to add file",
+  emptyTextCannotBeSent: "Empty text cannot be sent",
+  foldersAreNotSupported: "Folders are not supported yet",
+  waitingForPhoneToReceive: "Waiting for phone to receive",
+  desktopToPhonePreview: "Desktop to phone is in preview",
+  sendToPhoneDescription:
+    "Send text or files to the connected phone. The phone will be able to copy or download them in this session.",
+  mobileReceiveComingNext: "Desktop-to-phone receive UI is coming next.",
+  downloaded: "Downloaded"
 } as const;
