@@ -17,13 +17,17 @@
 - Honest local HTTP security model.
 - Windows Preview build.
 
-## v0.2
+## v0.2 Planned: Desktop to Phone Transfer
+
+Status: design in progress. Not implemented yet.
 
 - Desktop to phone transfer.
 - Better receive and download flow on mobile.
 - More polished settings.
 - Optional keep original filename behavior.
 - Better onboarding and diagnostics.
+
+See [v0.2 desktop-to-phone design](v0.2-desktop-to-phone-design.md).
 
 ## v0.3
 

@@ -96,3 +96,31 @@ Possible future versions can add:
 - Optional end-to-end encryption where the QR code carries a pairing key and payloads are encrypted before upload.
 
 Those additions should remain optional and clearly explained to avoid turning DropLite into a complex sync or chat product.
+
+## v0.2 Planned Architecture: Desktop to Phone
+
+Status: design in progress. This section describes a planned architecture, not implemented behavior.
+
+The preferred v0.2 approach is to keep the existing local HTTP service and add an in-memory desktop outbox. The desktop UI would add text or files to the Rust backend, the phone page would poll a token-protected outbox endpoint, and the phone would copy text or download files through token-protected routes.
+
+Planned flow:
+
+```text
+Desktop UI
+-> Tauri/Rust backend
+-> in-memory outbox
+-> phone browser polling
+-> phone receive cards
+-> token-protected file download
+```
+
+Planned API shape:
+
+- `GET /api/outbox?token=...` lists current pending desktop-to-phone items.
+- `GET /api/outbox/:id/download?token=...` downloads a registered file item.
+- `POST /api/outbox/:id/ack?token=...` marks an item as claimed or downloaded.
+- Desktop-side Tauri commands or internal APIs add text and files to the outbox.
+
+Polling is preferred over WebSocket for v0.2 because it is simpler, broadly compatible with phone browsers, easier to debug, and less likely to destabilize the v0.1 upload path. A future version can revisit WebSocket if the product need becomes clear.
+
+Outbox state should remain memory-only, expire with the session, and be cleared when the app closes or the user refreshes the session.

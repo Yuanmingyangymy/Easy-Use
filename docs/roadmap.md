@@ -2,9 +2,21 @@
 
 ## Current Focus
 
+### DropLite v0.2 Design
+
+DropLite v0.1.0 Preview has been released. DropLite v0.2 is now in the design stage and will explore desktop-to-phone transfer while preserving the local-first, no-account, no-cloud model.
+
+Planned v0.2 direction:
+
+- Desktop to phone text transfer.
+- Desktop to phone file transfer.
+- Phone-side copy and download actions.
+- Token-protected local outbox.
+- No cloud relay, account system, database, or permanent history.
+
 ### DropLite v0.1.0 Preview
 
-DropLite is the first Easy-Use tool. The v0.1.0 Preview focuses on phone-to-desktop temporary transfer over the local network:
+The released v0.1.0 Preview focuses on phone-to-desktop temporary transfer over the local network:
 
 - Send text from a phone browser to the desktop.
 - Send photos, take a photo, send videos, and send generic files from a phone browser to the desktop.

@@ -89,3 +89,21 @@ Potential upgrades:
 - Optional per-transfer confirmation on the desktop.
 - Optional stricter content limits.
 - Optional relay mode for cross-network transfer, but only with transparent UI that states when data leaves the local network.
+
+## v0.2 Planned Security Considerations
+
+Status: design in progress. Desktop-to-phone transfer is not implemented yet.
+
+The planned v0.2 desktop-to-phone flow should keep the same Local-first / No account / No cloud boundary:
+
+- Every outbox list, acknowledgement, and download API must validate the current token.
+- Expired tokens must be rejected for outbox list and download access.
+- Refreshing the session should clear the current outbox so old pending items are not available under a new pairing context.
+- Files must come from explicit desktop user actions, such as choosing a file or dragging it into DropLite.
+- The backend must store safe server-side references and never expose arbitrary local paths to the phone.
+- Download endpoints must resolve only files registered in the current in-memory outbox.
+- Filenames used for downloads must be sanitized before being placed in `Content-Disposition`.
+- Text sent to the phone should remain memory-only and should disappear when the app closes or the session is refreshed.
+- v0.2 should not add accounts, cloud relay, tracking, a database, or permanent transfer history.
+
+The transport would still be local-network HTTP in v0.2. It remains inappropriate for public or untrusted Wi-Fi unless a future version adds stronger transport security.
