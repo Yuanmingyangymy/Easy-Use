@@ -29,6 +29,26 @@ Please include:
 
 Pull requests should be narrow and reviewable. Avoid mixing unrelated refactors with feature work.
 
+## Git Workflow
+
+Do not develop substantial changes directly on `master`. Keep `master` usable, tested, and close to the latest release or release candidate.
+
+- Use `feat/<scope>-<short-description>` for new features.
+- Use `fix/<scope>-<short-description>` for bug fixes.
+- Use `docs/<scope>-<short-description>` for documentation work.
+- Use `chore/<scope>-<short-description>` for maintenance.
+- Run the relevant tests before opening a PR.
+- Do not commit build outputs, installers, received user files, `node_modules/`, `target/`, `dist/`, `build/`, `SHA256SUMS.txt`, or temporary files.
+
+PR descriptions should include:
+
+- What changed.
+- Test results.
+- Known risks.
+- Screenshots or recordings when UI changes.
+
+See [docs/git-workflow.md](docs/git-workflow.md) for the full workflow.
+
 Before opening a PR:
 
 - Keep the change scoped to one tool or one documentation area.

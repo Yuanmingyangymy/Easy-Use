@@ -34,6 +34,8 @@ See [Tool Design Principles](docs/tool-design-principles.md) for the full projec
 
 The root of this repository contains the Easy-Use project documentation and tool index. Individual tools live under `tools/`.
 
+Before starting larger changes, create a branch from `master`. See [Git Workflow](docs/git-workflow.md).
+
 To work on DropLite:
 
 ```bash
