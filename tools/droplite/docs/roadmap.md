@@ -19,9 +19,11 @@
 
 ## v0.2 Planned: Desktop to Phone Transfer
 
-Status: design in progress. Not implemented yet.
+Status: Phase 1 backend model implemented on the v0.2 feature branch. Full v0.2 is not complete yet, and the desktop send UI and mobile receive UI are still planned.
 
 - Desktop to phone transfer.
+- In-memory outbox backend model.
+- Token-protected outbox list, download, and ack APIs.
 - Better receive and download flow on mobile.
 - More polished settings.
 - Optional keep original filename behavior.

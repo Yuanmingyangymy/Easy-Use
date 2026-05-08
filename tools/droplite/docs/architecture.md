@@ -97,11 +97,11 @@ Possible future versions can add:
 
 Those additions should remain optional and clearly explained to avoid turning DropLite into a complex sync or chat product.
 
-## v0.2 Planned Architecture: Desktop to Phone
+## v0.2 Outbox Architecture: Desktop to Phone
 
-Status: design in progress. This section describes a planned architecture, not implemented behavior.
+Status: Phase 1 backend model implemented on the `feat/droplite-desktop-to-phone` branch. The desktop send UI and mobile receive UI are still not implemented.
 
-The preferred v0.2 approach is to keep the existing local HTTP service and add an in-memory desktop outbox. The desktop UI would add text or files to the Rust backend, the phone page would poll a token-protected outbox endpoint, and the phone would copy text or download files through token-protected routes.
+The v0.2 approach keeps the existing local HTTP service and adds an in-memory desktop outbox. Future desktop UI work will add text or files to the Rust backend, the phone page will poll a token-protected outbox endpoint, and the phone will copy text or download files through token-protected routes.
 
 Planned flow:
 
@@ -114,13 +114,19 @@ Desktop UI
 -> token-protected file download
 ```
 
-Planned API shape:
+Implemented API shape:
 
 - `GET /api/outbox?token=...` lists current pending desktop-to-phone items.
 - `GET /api/outbox/:id/download?token=...` downloads a registered file item.
 - `POST /api/outbox/:id/ack?token=...` marks an item as claimed or downloaded.
-- Desktop-side Tauri commands or internal APIs add text and files to the outbox.
+
+Implemented internal backend methods:
+
+- `add_outbox_text(content)` creates a memory-only text item and rejects empty text.
+- `add_outbox_file(path)` creates a file, image, or video item from a backend-only canonical path, rejects directories and missing files, and never returns the local path to the phone.
 
 Polling is preferred over WebSocket for v0.2 because it is simpler, broadly compatible with phone browsers, easier to debug, and less likely to destabilize the v0.1 upload path. A future version can revisit WebSocket if the product need becomes clear.
 
 Outbox state should remain memory-only, expire with the session, and be cleared when the app closes or the user refreshes the session.
+
+Refresh session behavior is explicit: the old token is invalidated and the current outbox is cleared. This prevents an old phone page from downloading newly queued desktop content.

@@ -1,3 +1,4 @@
+pub mod outbox;
 pub mod routes;
 pub mod session;
 pub mod upload;
@@ -12,9 +13,14 @@ use std::{
     },
     time::{SystemTime, UNIX_EPOCH},
 };
+#[cfg(not(test))]
 use tauri::{AppHandle, Emitter};
 use tokio::net::TcpListener;
 
+#[cfg(test)]
+type AppHandle = ();
+
+use self::outbox::{OutboxEntry, OutboxItem, OutboxState};
 use self::session::Session;
 
 pub const DEFAULT_SESSION_TTL_SECS: u64 = 10 * 60;
@@ -100,6 +106,8 @@ pub struct AppState {
     config: AppConfig,
     session: RwLock<Session>,
     received: RwLock<Vec<ReceivedItem>>,
+    outbox: RwLock<OutboxState>,
+    #[cfg_attr(test, allow(dead_code))]
     app_handle: Mutex<Option<AppHandle>>,
     id_counter: AtomicU64,
 }
@@ -130,6 +138,7 @@ impl AppState {
         Ok(Self {
             session: RwLock::new(Session::new(config.ttl_secs, 0)),
             received: RwLock::new(Vec::new()),
+            outbox: RwLock::new(OutboxState::default()),
             app_handle: Mutex::new(None),
             id_counter: AtomicU64::new(1),
             config,
@@ -140,6 +149,7 @@ impl AppState {
         &self.config
     }
 
+    #[cfg(not(test))]
     pub fn set_app_handle(&self, handle: AppHandle) {
         if let Ok(mut slot) = self.app_handle.lock() {
             *slot = Some(handle);
@@ -162,6 +172,7 @@ impl AppState {
             .write()
             .map_err(|_| AppError::LockFailed("session"))?;
         *session = Session::new(self.config.ttl_secs, current_port);
+        self.clear_outbox()?;
         Ok(())
     }
 
@@ -179,9 +190,12 @@ impl AppState {
             received.truncate(100);
         }
 
-        if let Ok(slot) = self.app_handle.lock() {
-            if let Some(handle) = slot.as_ref() {
-                let _ = handle.emit("droplite://received", item);
+        #[cfg(not(test))]
+        {
+            if let Ok(slot) = self.app_handle.lock() {
+                if let Some(handle) = slot.as_ref() {
+                    let _ = handle.emit("droplite://received", item);
+                }
             }
         }
 
@@ -207,6 +221,55 @@ impl AppState {
             "http://127.0.0.1:{}/api/received/{}/preview?token={}",
             session.port, id, session.token
         ))
+    }
+
+    pub fn add_outbox_text(&self, content: String) -> Result<OutboxItem, AppError> {
+        let mut outbox = self
+            .outbox
+            .write()
+            .map_err(|_| AppError::LockFailed("outbox"))?;
+        outbox.add_text(content)
+    }
+
+    pub fn add_outbox_file(&self, path: PathBuf) -> Result<OutboxItem, AppError> {
+        let mut outbox = self
+            .outbox
+            .write()
+            .map_err(|_| AppError::LockFailed("outbox"))?;
+        outbox.add_file(path)
+    }
+
+    pub fn outbox_items(&self) -> Result<Vec<OutboxItem>, AppError> {
+        let outbox = self
+            .outbox
+            .read()
+            .map_err(|_| AppError::LockFailed("outbox"))?;
+        Ok(outbox.list())
+    }
+
+    pub fn outbox_entry(&self, id: &str) -> Result<Option<OutboxEntry>, AppError> {
+        let outbox = self
+            .outbox
+            .read()
+            .map_err(|_| AppError::LockFailed("outbox"))?;
+        Ok(outbox.get(id))
+    }
+
+    pub fn acknowledge_outbox_item(&self, id: &str) -> Result<OutboxItem, AppError> {
+        let mut outbox = self
+            .outbox
+            .write()
+            .map_err(|_| AppError::LockFailed("outbox"))?;
+        outbox.acknowledge(id)
+    }
+
+    pub fn clear_outbox(&self) -> Result<(), AppError> {
+        let mut outbox = self
+            .outbox
+            .write()
+            .map_err(|_| AppError::LockFailed("outbox"))?;
+        outbox.clear();
+        Ok(())
     }
 
     pub fn desktop_state(&self) -> Result<DesktopState, AppError> {
@@ -249,11 +312,21 @@ impl AppState {
         })
     }
 
-    fn session_snapshot(&self) -> Result<Session, AppError> {
+    pub(crate) fn session_snapshot(&self) -> Result<Session, AppError> {
         self.session
             .read()
             .map_err(|_| AppError::LockFailed("session"))
             .map(|session| session.clone())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_session_for_test(&self, session: Session) -> Result<(), AppError> {
+        let mut current = self
+            .session
+            .write()
+            .map_err(|_| AppError::LockFailed("session"))?;
+        *current = session;
+        Ok(())
     }
 
     fn attach_preview_urls(&self, items: &mut [ReceivedItem]) -> Result<(), AppError> {

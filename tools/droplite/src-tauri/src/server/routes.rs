@@ -18,6 +18,7 @@ use crate::{
 
 use super::{
     debug_log, now_epoch_secs,
+    outbox::{content_disposition, OutboxContent, OutboxItem},
     upload::{
         ensure_receive_dir, ensure_upload_size, rename_complete_upload, LimitedFileWriter,
         TempFileGuard,
@@ -50,12 +51,30 @@ struct UploadResponse {
     items: Vec<ReceivedItem>,
 }
 
+#[derive(Serialize)]
+struct OutboxResponse {
+    ok: bool,
+    items: Vec<OutboxItem>,
+}
+
+#[derive(Serialize)]
+struct OutboxAckResponse {
+    ok: bool,
+    item: OutboxItem,
+}
+
 pub fn router(state: Arc<AppState>) -> Router {
     let max_body = state.config().max_upload_bytes.saturating_add(1024 * 1024) as usize;
 
     Router::new()
         .route("/", get(upload_page))
         .route("/api/session", get(session_info))
+        .route("/api/outbox", get(outbox_list))
+        .route("/api/outbox/:id/download", get(outbox_download))
+        .route(
+            "/api/outbox/:id/ack",
+            post(outbox_ack).options(options_handler),
+        )
         .route("/api/received/:id/preview", get(received_preview))
         .route(
             "/api/upload/text",
@@ -99,6 +118,91 @@ async fn session_info(
         max_upload_bytes: view.max_upload_bytes,
         reason: validation.err().map(|error| error.to_string()),
     }))
+}
+
+async fn outbox_list(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<AuthQuery>,
+) -> Result<Json<OutboxResponse>, AppError> {
+    let token = query.token.as_deref().ok_or(AppError::TokenInvalid)?;
+    state.validate_token(token)?;
+
+    Ok(Json(OutboxResponse {
+        ok: true,
+        items: state.outbox_items()?,
+    }))
+}
+
+async fn outbox_ack(
+    State(state): State<Arc<AppState>>,
+    AxumPath(id): AxumPath<String>,
+    Query(query): Query<AuthQuery>,
+) -> Result<Json<OutboxAckResponse>, AppError> {
+    let token = query.token.as_deref().ok_or(AppError::TokenInvalid)?;
+    state.validate_token(token)?;
+
+    let item = state.acknowledge_outbox_item(&id)?;
+    Ok(Json(OutboxAckResponse { ok: true, item }))
+}
+
+async fn outbox_download(
+    State(state): State<Arc<AppState>>,
+    AxumPath(id): AxumPath<String>,
+    Query(query): Query<AuthQuery>,
+) -> Result<impl IntoResponse, AppError> {
+    let token = query.token.as_deref().ok_or(AppError::TokenInvalid)?;
+    state.validate_token(token)?;
+
+    let entry = state
+        .outbox_entry(&id)?
+        .ok_or_else(|| AppError::NotFound("Outbox item was not found.".to_string()))?;
+
+    let path = match entry.content {
+        OutboxContent::File { path } => path,
+        OutboxContent::Text(_) => {
+            return Err(AppError::BadRequest(
+                "Text outbox items are copied from the outbox list and cannot be downloaded."
+                    .to_string(),
+            ));
+        }
+    };
+
+    let metadata = fs::metadata(&path).await?;
+    if !metadata.is_file() {
+        return Err(AppError::NotFound("Outbox file was not found.".to_string()));
+    }
+
+    let bytes = fs::read(&path).await?;
+    let content_type = entry
+        .item
+        .mime_type
+        .as_deref()
+        .map(str::to_string)
+        .or_else(|| {
+            mime_guess::from_path(&path)
+                .first()
+                .map(|value| value.essence_str().to_string())
+        })
+        .unwrap_or_else(|| "application/octet-stream".to_string());
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_str(&content_type)
+            .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+    );
+    headers.insert(
+        header::CONTENT_LENGTH,
+        HeaderValue::from_str(&bytes.len().to_string())
+            .unwrap_or_else(|_| HeaderValue::from_static("0")),
+    );
+    headers.insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_str(&content_disposition(&entry.item.display_name))
+            .unwrap_or_else(|_| HeaderValue::from_static("attachment; filename=\"file.bin\"")),
+    );
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+
+    Ok((headers, bytes))
 }
 
 async fn upload_text(
@@ -355,6 +459,223 @@ async fn received_preview(
     headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
 
     Ok((headers, bytes))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::{session::Session, AppConfig, DEFAULT_MAX_UPLOAD_BYTES};
+    use std::{fs as std_fs, path::PathBuf};
+
+    fn test_dir(name: &str) -> PathBuf {
+        let path =
+            std::env::temp_dir().join(format!("droplite-routes-{name}-{}", now_epoch_secs()));
+        std_fs::create_dir_all(&path).expect("create test dir");
+        path
+    }
+
+    fn test_state(token: &str) -> Arc<AppState> {
+        let receive_dir = test_dir("receive");
+        let state = Arc::new(
+            AppState::new(AppConfig {
+                device_name: "Test computer".to_string(),
+                local_ip: "127.0.0.1".to_string(),
+                max_upload_bytes: DEFAULT_MAX_UPLOAD_BYTES,
+                receive_dir,
+                ttl_secs: 600,
+            })
+            .expect("state"),
+        );
+        let now = now_epoch_secs();
+        state
+            .set_session_for_test(Session::for_test(
+                token.to_string(),
+                now,
+                now.saturating_add(60),
+                1234,
+            ))
+            .expect("test session");
+        state
+    }
+
+    fn expire_session(state: &AppState, token: &str) {
+        let now = now_epoch_secs();
+        state
+            .set_session_for_test(Session::for_test(
+                token.to_string(),
+                now.saturating_sub(120),
+                now.saturating_sub(60),
+                1234,
+            ))
+            .expect("expired session");
+    }
+
+    #[tokio::test]
+    async fn outbox_list_requires_valid_token() {
+        let state = test_state("valid-token");
+        state
+            .add_outbox_text("hello".to_string())
+            .expect("outbox text");
+
+        let response = outbox_list(
+            State(Arc::clone(&state)),
+            Query(AuthQuery {
+                token: Some("valid-token".to_string()),
+            }),
+        )
+        .await
+        .expect("valid list");
+
+        assert_eq!(response.0.items.len(), 1);
+        assert!(matches!(
+            outbox_list(
+                State(state),
+                Query(AuthQuery {
+                    token: Some("wrong".to_string()),
+                }),
+            )
+            .await,
+            Err(AppError::TokenInvalid)
+        ));
+    }
+
+    #[tokio::test]
+    async fn outbox_list_rejects_expired_token() {
+        let state = test_state("valid-token");
+        expire_session(&state, "valid-token");
+
+        assert!(matches!(
+            outbox_list(
+                State(state),
+                Query(AuthQuery {
+                    token: Some("valid-token".to_string()),
+                }),
+            )
+            .await,
+            Err(AppError::SessionExpired)
+        ));
+    }
+
+    #[tokio::test]
+    async fn outbox_download_requires_valid_token_and_registered_file() {
+        let state = test_state("valid-token");
+        let path = test_dir("files").join("report.pdf");
+        std_fs::write(&path, b"pdf bytes").expect("write file");
+        let item = state.add_outbox_file(path).expect("outbox file");
+
+        let response = outbox_download(
+            State(Arc::clone(&state)),
+            AxumPath(item.id.clone()),
+            Query(AuthQuery {
+                token: Some("valid-token".to_string()),
+            }),
+        )
+        .await
+        .expect("download")
+        .into_response();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(header::CONTENT_DISPOSITION).unwrap(),
+            "attachment; filename=\"report.pdf\""
+        );
+
+        assert!(matches!(
+            outbox_download(
+                State(Arc::clone(&state)),
+                AxumPath(item.id),
+                Query(AuthQuery {
+                    token: Some("wrong".to_string()),
+                }),
+            )
+            .await,
+            Err(AppError::TokenInvalid)
+        ));
+        assert!(matches!(
+            outbox_download(
+                State(state),
+                AxumPath("../report.pdf".to_string()),
+                Query(AuthQuery {
+                    token: Some("valid-token".to_string()),
+                }),
+            )
+            .await,
+            Err(AppError::NotFound(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn outbox_download_rejects_expired_token_and_text_items() {
+        let state = test_state("valid-token");
+        let item = state
+            .add_outbox_text("copy me".to_string())
+            .expect("outbox text");
+
+        assert!(matches!(
+            outbox_download(
+                State(Arc::clone(&state)),
+                AxumPath(item.id.clone()),
+                Query(AuthQuery {
+                    token: Some("valid-token".to_string()),
+                }),
+            )
+            .await,
+            Err(AppError::BadRequest(_))
+        ));
+
+        expire_session(&state, "valid-token");
+        assert!(matches!(
+            outbox_download(
+                State(state),
+                AxumPath(item.id),
+                Query(AuthQuery {
+                    token: Some("valid-token".to_string()),
+                }),
+            )
+            .await,
+            Err(AppError::SessionExpired)
+        ));
+    }
+
+    #[tokio::test]
+    async fn outbox_ack_marks_downloaded() {
+        let state = test_state("valid-token");
+        let item = state
+            .add_outbox_text("copy me".to_string())
+            .expect("outbox text");
+
+        let response = outbox_ack(
+            State(state),
+            AxumPath(item.id),
+            Query(AuthQuery {
+                token: Some("valid-token".to_string()),
+            }),
+        )
+        .await
+        .expect("ack");
+
+        assert!(response.0.ok);
+        assert_eq!(
+            response.0.item.status,
+            super::super::outbox::OutboxStatus::Downloaded
+        );
+    }
+
+    #[test]
+    fn refresh_session_clears_outbox_and_invalidates_old_token() {
+        let state = test_state("valid-token");
+        state
+            .add_outbox_text("copy me".to_string())
+            .expect("outbox text");
+
+        state.refresh_session().expect("refresh");
+
+        assert!(state.outbox_items().expect("items").is_empty());
+        assert!(matches!(
+            state.validate_token("valid-token"),
+            Err(AppError::TokenInvalid)
+        ));
+    }
 }
 
 const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>

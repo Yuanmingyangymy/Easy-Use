@@ -90,19 +90,19 @@ Potential upgrades:
 - Optional stricter content limits.
 - Optional relay mode for cross-network transfer, but only with transparent UI that states when data leaves the local network.
 
-## v0.2 Planned Security Considerations
+## v0.2 Outbox Security Considerations
 
-Status: design in progress. Desktop-to-phone transfer is not implemented yet.
+Status: Phase 1 backend model implemented on the `feat/droplite-desktop-to-phone` branch. The desktop send UI and mobile receive UI are still not implemented.
 
-The planned v0.2 desktop-to-phone flow should keep the same Local-first / No account / No cloud boundary:
+The v0.2 desktop-to-phone flow keeps the same Local-first / No account / No cloud boundary:
 
-- Every outbox list, acknowledgement, and download API must validate the current token.
-- Expired tokens must be rejected for outbox list and download access.
-- Refreshing the session should clear the current outbox so old pending items are not available under a new pairing context.
-- Files must come from explicit desktop user actions, such as choosing a file or dragging it into DropLite.
-- The backend must store safe server-side references and never expose arbitrary local paths to the phone.
-- Download endpoints must resolve only files registered in the current in-memory outbox.
-- Filenames used for downloads must be sanitized before being placed in `Content-Disposition`.
+- Every outbox list, acknowledgement, and download API validates the current token.
+- Expired tokens are rejected for outbox list and download access.
+- Refreshing the session clears the current outbox so old pending items are not available under a new pairing context.
+- Files must come from explicit desktop user actions, such as choosing a file or dragging it into DropLite. Phase 1 exposes only backend methods; UI wiring comes later.
+- The backend stores safe server-side references and never exposes arbitrary local paths to the phone.
+- Download endpoints resolve only files registered in the current in-memory outbox.
+- Filenames used for downloads are sanitized before being placed in `Content-Disposition`.
 - Text sent to the phone should remain memory-only and should disappear when the app closes or the session is refreshed.
 - v0.2 should not add accounts, cloud relay, tracking, a database, or permanent transfer history.
 
