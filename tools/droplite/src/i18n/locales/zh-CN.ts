@@ -71,5 +71,13 @@ export const zhCN = {
   failedToLoadDesktopItems: "加载电脑内容失败",
   failedToDownloadFile: "文件下载失败",
   sentFromDesktop: "来自电脑",
-  waitingForDesktopItems: "等待电脑发送内容"
+  waitingForDesktopItems: "等待电脑发送内容",
+  newItemFromDesktop: "收到来自电脑的新内容",
+  openInBrowserToDownload: "在浏览器中打开后下载",
+  copyDownloadLink: "复制下载链接",
+  downloadLinkCopied: "下载链接已复制",
+  downloadMayBeBlockedInThisBrowser: "当前浏览器可能阻止下载",
+  pleaseOpenSystemBrowserToDownload: "请在系统浏览器中打开此页面后下载文件",
+  wechatDownloadHint: "微信内置浏览器可能无法直接下载文件。请点击右上角 '...'，选择 '在浏览器打开'，然后再下载。",
+  receive: "接收"
 } as const;

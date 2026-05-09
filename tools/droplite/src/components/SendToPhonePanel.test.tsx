@@ -7,14 +7,15 @@ const api = vi.hoisted(() => ({
   addOutboxFile: vi.fn(),
   addOutboxText: vi.fn(),
   chooseOutboxFiles: vi.fn(),
-  listOutboxItems: vi.fn()
+  listOutboxItems: vi.fn(),
+  onDragDropEvent: vi.fn()
 }));
 
 vi.mock("../lib/api", () => api);
 
 vi.mock("@tauri-apps/api/webview", () => ({
   getCurrentWebview: () => ({
-    onDragDropEvent: vi.fn().mockResolvedValue(() => undefined)
+    onDragDropEvent: api.onDragDropEvent
   })
 }));
 
@@ -36,6 +37,7 @@ describe("SendToPhonePanel", () => {
     localStorage.clear();
     api.listOutboxItems.mockResolvedValue([]);
     api.chooseOutboxFiles.mockResolvedValue([]);
+    api.onDragDropEvent.mockResolvedValue(() => undefined);
   });
 
   it("renders the desktop send area", async () => {
@@ -83,7 +85,7 @@ describe("SendToPhonePanel", () => {
   });
 
   it("chooses files and renders file kinds without local paths", async () => {
-    api.chooseOutboxFiles.mockResolvedValue(["C:/Users/me/secret/photo.jpg"]);
+    api.chooseOutboxFiles.mockResolvedValue(["C:/Users/me/secret/photo.jpg", "C:/Users/me/secret/photo.jpg"]);
     api.addOutboxFile.mockResolvedValue(
       item({
         id: "image-1",
@@ -100,6 +102,7 @@ describe("SendToPhonePanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Choose files" }));
 
     await waitFor(() => expect(api.addOutboxFile).toHaveBeenCalledWith("C:/Users/me/secret/photo.jpg"));
+    expect(api.addOutboxFile).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("photo.jpg")).toBeInTheDocument();
     expect(screen.getByLabelText("image outbox item")).toBeInTheDocument();
     expect(screen.queryByText(/C:\/Users\/me\/secret/)).not.toBeInTheDocument();
@@ -117,5 +120,64 @@ describe("SendToPhonePanel", () => {
     expect(await screen.findByLabelText("image outbox item")).toBeInTheDocument();
     expect(screen.getByLabelText("video outbox item")).toBeInTheDocument();
     expect(screen.getByLabelText("file outbox item")).toBeInTheDocument();
+  });
+
+  it("deduplicates paths from a single drag drop event", async () => {
+    let dragHandler: ((event: { payload: { type: string; paths: string[] } }) => void) | undefined;
+    api.onDragDropEvent.mockImplementation((handler) => {
+      dragHandler = handler;
+      return Promise.resolve(() => undefined);
+    });
+    api.addOutboxFile.mockResolvedValue(
+      item({
+        id: "file-1",
+        kind: "file",
+        displayName: "report.pdf",
+        content: undefined
+      })
+    );
+
+    render(<SendToPhonePanel />);
+    await waitFor(() => expect(api.onDragDropEvent).toHaveBeenCalledTimes(1));
+
+    dragHandler?.({
+      payload: {
+        type: "drop",
+        paths: ["C:/DropLite/report.pdf", "C:/DropLite/report.pdf"]
+      }
+    });
+
+    await waitFor(() => expect(api.addOutboxFile).toHaveBeenCalledTimes(1));
+    expect(api.addOutboxFile).toHaveBeenCalledWith("C:/DropLite/report.pdf");
+  });
+
+  it("debounces duplicate drop events from the same gesture", async () => {
+    let dragHandler: ((event: { payload: { type: string; paths: string[] } }) => void) | undefined;
+    api.onDragDropEvent.mockImplementation((handler) => {
+      dragHandler = handler;
+      return Promise.resolve(() => undefined);
+    });
+    api.addOutboxFile.mockResolvedValue(
+      item({
+        id: "file-1",
+        kind: "file",
+        displayName: "report.pdf",
+        content: undefined
+      })
+    );
+
+    render(<SendToPhonePanel />);
+    await waitFor(() => expect(api.onDragDropEvent).toHaveBeenCalledTimes(1));
+
+    const event = {
+      payload: {
+        type: "drop",
+        paths: ["C:/DropLite/report.pdf"]
+      }
+    };
+    dragHandler?.(event);
+    dragHandler?.(event);
+
+    await waitFor(() => expect(api.addOutboxFile).toHaveBeenCalledTimes(1));
   });
 });

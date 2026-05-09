@@ -1,5 +1,5 @@
 import { AlertCircle, CheckCircle, File, FilePlus, Image as ImageIcon, Send, Type, Upload, Video } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { OutboxItem } from "../lib/types";
 import { addOutboxFile, addOutboxText, chooseOutboxFiles, listOutboxItems } from "../lib/api";
@@ -18,6 +18,7 @@ export function SendToPhonePanel() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const lastDropRef = useRef<{ key: string; at: number } | null>(null);
 
   const refreshOutbox = useCallback(async () => {
     setItems(await listOutboxItems());
@@ -26,38 +27,6 @@ export function SendToPhonePanel() {
   useEffect(() => {
     void refreshOutbox().catch(() => undefined);
   }, [refreshOutbox]);
-
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-
-    try {
-      void getCurrentWebview()
-        .onDragDropEvent((event) => {
-          if (event.payload.type === "enter" || event.payload.type === "over") {
-            setDragging(true);
-            return;
-          }
-          if (event.payload.type === "leave") {
-            setDragging(false);
-            return;
-          }
-          if (event.payload.type === "drop") {
-            setDragging(false);
-            void addFiles(event.payload.paths);
-          }
-        })
-        .then((cleanup) => {
-          unlisten = cleanup;
-        })
-        .catch(() => undefined);
-    } catch {
-      // Browser-only tests and Vite preview do not expose Tauri drag events.
-    }
-
-    return () => {
-      unlisten?.();
-    };
-  }, []);
 
   const handleSendText = async () => {
     const value = text.trim();
@@ -82,7 +51,7 @@ export function SendToPhonePanel() {
   const handleChooseFiles = async () => {
     setBusy(true);
     try {
-      const paths = await chooseOutboxFiles();
+      const paths = uniquePaths(await chooseOutboxFiles());
       if (paths.length > 0) {
         await addFiles(paths);
       }
@@ -93,32 +62,81 @@ export function SendToPhonePanel() {
     }
   };
 
-  const addFiles = async (paths: string[]) => {
-    if (paths.length === 0) return;
+  const addFiles = useCallback(
+    async (paths: string[]) => {
+      const unique = uniquePaths(paths);
+      if (unique.length === 0) return;
 
-    setBusy(true);
-    const added: OutboxItem[] = [];
-    let failed = 0;
+      setBusy(true);
+      const added: OutboxItem[] = [];
+      let failed = 0;
 
-    for (const path of paths) {
-      try {
-        added.push(await addOutboxFile(path));
-      } catch {
-        failed += 1;
+      for (const path of unique) {
+        try {
+          added.push(await addOutboxFile(path));
+        } catch {
+          failed += 1;
+        }
       }
+
+      if (added.length > 0) {
+        setItems((current) => added.reduce(upsertOutboxItem, current));
+      }
+
+      if (failed > 0) {
+        setNotice({ kind: "error", text: t("failedToAddFile") });
+      } else {
+        setNotice({ kind: "ok", text: t("addedToPhoneOutbox") });
+      }
+      setBusy(false);
+    },
+    [t]
+  );
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+
+    try {
+      void getCurrentWebview()
+        .onDragDropEvent((event) => {
+          if (event.payload.type === "enter" || event.payload.type === "over") {
+            setDragging(true);
+            return;
+          }
+          if (event.payload.type === "leave") {
+            setDragging(false);
+            return;
+          }
+          if (event.payload.type === "drop") {
+            setDragging(false);
+            const paths = uniquePaths(event.payload.paths);
+            const dropKey = paths.join("\n");
+            const now = Date.now();
+            if (lastDropRef.current?.key === dropKey && now - lastDropRef.current.at < 750) {
+              return;
+            }
+            lastDropRef.current = { key: dropKey, at: now };
+            void addFiles(paths);
+          }
+        })
+        .then((cleanup) => {
+          if (cancelled) {
+            cleanup();
+            return;
+          }
+          unlisten = cleanup;
+        })
+        .catch(() => undefined);
+    } catch {
+      // Browser-only tests and Vite preview do not expose Tauri drag events.
     }
 
-    if (added.length > 0) {
-      setItems((current) => added.reduce(upsertOutboxItem, current));
-    }
-
-    if (failed > 0) {
-      setNotice({ kind: "error", text: t("failedToAddFile") });
-    } else {
-      setNotice({ kind: "ok", text: t("addedToPhoneOutbox") });
-    }
-    setBusy(false);
-  };
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [addFiles]);
 
   return (
     <section className="send-panel" aria-label={t("sendToPhone")}>
@@ -196,6 +214,10 @@ export function SendToPhonePanel() {
 
 function upsertOutboxItem(items: OutboxItem[], item: OutboxItem): OutboxItem[] {
   return [item, ...items.filter((existing) => existing.id !== item.id)];
+}
+
+function uniquePaths(paths: string[]): string[] {
+  return Array.from(new Set(paths.filter((path) => path.trim().length > 0)));
 }
 
 function OutboxIcon({ kind }: { kind: OutboxItem["kind"] }) {

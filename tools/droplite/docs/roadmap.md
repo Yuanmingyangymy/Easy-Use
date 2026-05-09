@@ -19,21 +19,24 @@
 
 ## v0.2 Planned: Desktop to Phone Transfer
 
-Status: Phase 1 backend model, Phase 2 desktop send UI, Phase 2.5 configurable receive folder, and Phase 3 mobile receive UI implemented on the v0.2 feature branch. Full v0.2 is not released yet.
+Status: Phase 1 backend model, Phase 2 desktop send UI, Phase 2.5 configurable receive folder, and Phase 3 mobile receive UI implemented on the v0.2 feature branch. Phase 4 reliability and mobile download polish is in progress. Full v0.2 is not released yet.
 
 - Desktop to phone transfer.
 - In-memory outbox backend model.
 - Token-protected outbox list, download, and ack APIs.
 - Desktop `Send to phone` panel.
 - Native file picker and Tauri file drop support for adding outbox files.
-- Mobile `Receive from desktop` section for copying text and downloading files.
+- Mobile `Receive from desktop` tab for copying text and downloading files.
+- Download fallback guidance for restricted mobile browsers.
+- De-duplication for dragged files and phone outbox rendering.
 - Configurable receive folder for phone-to-desktop files.
+- Manual QA checklist for bidirectional regression and WeChat/system-browser download behavior.
 - Better receive and download flow on mobile.
 - More polished settings.
 - Optional keep original filename behavior.
 - Better onboarding and diagnostics.
 
-See [v0.2 desktop-to-phone design](v0.2-desktop-to-phone-design.md).
+See [v0.2 desktop-to-phone design](v0.2-desktop-to-phone-design.md) and [v0.2 manual QA](v0.2-manual-qa.md).
 
 ## v0.3
 

@@ -124,6 +124,11 @@ The v0.2 desktop-to-phone flow keeps the same Local-first / No account / No clou
 - Filenames used for downloads are sanitized before being placed in `Content-Disposition`.
 - Text sent to the phone should remain memory-only and should disappear when the app closes or the session is refreshed.
 - Mobile copy and download actions acknowledge items after the user action. Acknowledgement updates in-memory status only; it is not a persistent history store.
+- If the mobile browser appears to block direct download behavior, DropLite shows guidance to open the page in the system browser and offers a copyable token-protected download link.
+- Download fallback links still include the session token and are rejected after token expiry or session refresh.
+- Copying a download link is not treated as a successful download and does not acknowledge the item.
+- In normal browsers, acknowledgement means DropLite triggered the browser download/open behavior. Browser storage location and final save behavior are still controlled by the phone OS and browser.
+- WeChat in-app browser detection is used only to show guidance. It is not trusted for authorization or security decisions.
 - v0.2 should not add accounts, cloud relay, tracking, a database, or permanent transfer history.
 
 The transport would still be local-network HTTP in v0.2. It remains inappropriate for public or untrusted Wi-Fi unless a future version adds stronger transport security.

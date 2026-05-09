@@ -73,5 +73,14 @@ export const en = {
   failedToLoadDesktopItems: "Failed to load desktop items",
   failedToDownloadFile: "Failed to download file",
   sentFromDesktop: "Sent from desktop",
-  waitingForDesktopItems: "Waiting for desktop items"
+  waitingForDesktopItems: "Waiting for desktop items",
+  newItemFromDesktop: "New item from desktop",
+  openInBrowserToDownload: "Open in browser to download",
+  copyDownloadLink: "Copy download link",
+  downloadLinkCopied: "Download link copied",
+  downloadMayBeBlockedInThisBrowser: "Download may be blocked in this browser",
+  pleaseOpenSystemBrowserToDownload: "Please open this page in your system browser to download files",
+  wechatDownloadHint:
+    "WeChat's in-app browser may block downloads. Tap '...' and open this page in your system browser to download files.",
+  receive: "Receive"
 } as const;

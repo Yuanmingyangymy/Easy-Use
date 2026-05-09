@@ -60,10 +60,11 @@ Summary:
 - Download files.
 - Handle expired session.
 - Keep mobile UI simple.
+- Improved after real phone QA with mobile tabs, download fallback guidance, and outbox item de-duplication.
 
 ### Phase 4: Reliability and Regression QA
 
-Status: planned
+Status: in progress
 
 Summary:
 
@@ -72,6 +73,9 @@ Summary:
 - Desktop -> phone download reliability.
 - iOS/Android browser behavior.
 - Windows firewall/private network docs.
+- WeChat in-app browser download fallback guidance.
+- Manual QA checklist for bidirectional v0.2 validation.
+- Manual QA details live in [`v0.2-manual-qa.md`](v0.2-manual-qa.md).
 
 ### Phase 5: v0.2 Preview Release
 

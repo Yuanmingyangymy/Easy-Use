@@ -694,6 +694,11 @@ mod tests {
         assert!(MOBILE_UPLOAD_HTML.contains("fetchOutbox"));
         assert!(MOBILE_UPLOAD_HTML.contains("copyOutboxText"));
         assert!(MOBILE_UPLOAD_HTML.contains("downloadOutboxFile"));
+        assert!(MOBILE_UPLOAD_HTML.contains("sendTab"));
+        assert!(MOBILE_UPLOAD_HTML.contains("receiveTab"));
+        assert!(MOBILE_UPLOAD_HTML.contains("dedupeOutboxItems"));
+        assert!(MOBILE_UPLOAD_HTML.contains("copyDownloadLink"));
+        assert!(MOBILE_UPLOAD_HTML.contains("restrictedDownloadBrowser"));
     }
 }
 
@@ -739,6 +744,16 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
       .desktop-item-content { background: #f7faf7; border-radius: 8px; color: #253c32; margin: 10px 0; padding: 10px; white-space: pre-wrap; word-break: break-word; }
       .desktop-item-actions { display: flex; gap: 8px; margin-top: 10px; }
       .desktop-item-actions button { min-height: 40px; width: auto; }
+      .mobile-tabs { background: #eef4ee; border-radius: 8px; display: grid; gap: 4px; grid-template-columns: 1fr 1fr; margin: 12px 0 14px; padding: 4px; }
+      .mobile-tab { background: transparent; color: #17352b; min-height: 42px; padding: 0 10px; }
+      .mobile-tab[aria-selected="true"] { background: #17352b; color: #fff; }
+      .tab-panel[hidden] { display: none; }
+      .tab-panel.receive-active { max-height: min(62vh, 620px); overflow-y: auto; }
+      .badge { background: rgba(255,255,255,.24); border-radius: 999px; display: inline-block; font-size: .78rem; margin-left: 4px; min-width: 20px; padding: 2px 6px; }
+      .tab-notice { background: #fff8e6; border: 1px solid #ecd28b; border-radius: 8px; color: #77590c; margin: -2px 0 12px; padding: 10px 12px; }
+      .browser-hint { background: #fff8e6; border: 1px solid #ecd28b; border-radius: 8px; color: #5c4711; margin: 10px 0; padding: 10px; }
+      .download-fallback { background: #fff8e6; border: 1px solid #ecd28b; border-radius: 8px; color: #5c4711; margin-top: 10px; padding: 10px; }
+      .download-fallback a { color: #17352b; display: inline-block; font-weight: 800; margin: 8px 10px 0 0; }
     </style>
   </head>
   <body>
@@ -756,14 +771,20 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
 
       <div id="status" class="status" hidden></div>
 
-      <section>
+      <nav class="mobile-tabs" aria-label="Transfer direction">
+        <button id="sendTab" class="mobile-tab" type="button" aria-controls="sendPanel" aria-selected="true" data-i18n="sendToDesktop">Send to desktop</button>
+        <button id="receiveTab" class="mobile-tab" type="button" aria-controls="receivePanel" aria-selected="false">
+          <span data-i18n="receive">Receive</span><span id="receiveBadge" class="badge">0</span>
+        </button>
+      </nav>
+      <div id="newItemNotice" class="tab-notice" data-i18n="newItemFromDesktop" hidden>New item from desktop</div>
+
+      <section id="sendPanel" class="tab-panel">
         <label for="text" data-i18n="sendText">Send text</label>
         <textarea id="text" data-i18n-placeholder="textPlaceholder" placeholder="Paste or type text here"></textarea>
         <p class="muted" data-i18n="textHelp">Paste text directly, then send it to the computer.</p>
         <button id="sendText" type="button" data-i18n="sendText">Send text</button>
-      </section>
 
-      <section>
         <label data-i18n="chooseWhat">Choose what to send</label>
         <div class="choice-grid">
           <button id="sendPhoto" class="choice-button" type="button" data-i18n="sendPhoto">Send photo</button>
@@ -779,11 +800,12 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         <p class="muted" data-i18n="localOnly">Local network only. No cloud upload.</p>
       </section>
 
-      <section aria-labelledby="receiveDesktopTitle">
+      <section id="receivePanel" class="tab-panel receive-active" aria-labelledby="receiveDesktopTitle" hidden>
         <div class="section-title-row">
           <label id="receiveDesktopTitle" data-i18n="receiveFromDesktop">Receive from desktop</label>
           <span class="pill" data-i18n="sentFromDesktop">Sent from desktop</span>
         </div>
+        <p id="browserDownloadHint" class="browser-hint" data-i18n="wechatDownloadHint" hidden>WeChat's in-app browser may block downloads. Tap '...' and open this page in your system browser to download files.</p>
         <p id="outboxStatus" class="muted" data-i18n="waitingForDesktopItems">Waiting for desktop items</p>
         <div id="outboxList" class="outbox-list"></div>
       </section>
@@ -799,6 +821,7 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
           sessionExpired: "Session expired. Please scan again.",
           networkUnreachable: "Network unreachable.",
           connected: "Connected to {device}. Session expires at {time}.",
+          sendToDesktop: "Send to desktop",
           sendText: "Send text",
           textPlaceholder: "Paste or type text here",
           textHelp: "Paste text directly, then send it to the computer.",
@@ -828,6 +851,14 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
           failedToDownloadFile: "Failed to download file",
           sentFromDesktop: "Sent from desktop",
           waitingForDesktopItems: "Waiting for desktop items",
+          newItemFromDesktop: "New item from desktop",
+          openInBrowserToDownload: "Open in browser to download",
+          copyDownloadLink: "Copy download link",
+          downloadLinkCopied: "Download link copied",
+          downloadMayBeBlockedInThisBrowser: "Download may be blocked in this browser",
+          pleaseOpenSystemBrowserToDownload: "Please open this page in your system browser to download files",
+          wechatDownloadHint: "WeChat's in-app browser may block downloads. Tap '...' and open this page in your system browser to download files.",
+          receive: "Receive",
           textItem: "Text",
           imageItem: "Image",
           videoItem: "Video",
@@ -839,6 +870,7 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
           sessionExpired: "会话已过期，请重新扫码。",
           networkUnreachable: "网络不可达。",
           connected: "已连接到 {device}，会话将在 {time} 过期。",
+          sendToDesktop: "发送到电脑",
           sendText: "发送文字",
           textPlaceholder: "在这里粘贴或输入文字",
           textHelp: "可直接粘贴文字，然后发送到电脑。",
@@ -868,6 +900,14 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
           failedToDownloadFile: "文件下载失败",
           sentFromDesktop: "来自电脑",
           waitingForDesktopItems: "等待电脑发送内容",
+          newItemFromDesktop: "收到来自电脑的新内容",
+          openInBrowserToDownload: "在浏览器中打开后下载",
+          copyDownloadLink: "复制下载链接",
+          downloadLinkCopied: "下载链接已复制",
+          downloadMayBeBlockedInThisBrowser: "当前浏览器可能阻止下载",
+          pleaseOpenSystemBrowserToDownload: "请在系统浏览器中打开此页面后下载文件",
+          wechatDownloadHint: "微信内置浏览器可能无法直接下载文件。请点击右上角 '...'，选择 '在浏览器打开'，然后再下载。",
+          receive: "接收",
           textItem: "文字",
           imageItem: "图片",
           videoItem: "视频",
@@ -891,12 +931,21 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
       const dropZone = document.getElementById("dropZone");
       const outboxList = document.getElementById("outboxList");
       const outboxStatus = document.getElementById("outboxStatus");
+      const sendTab = document.getElementById("sendTab");
+      const receiveTab = document.getElementById("receiveTab");
+      const receiveBadge = document.getElementById("receiveBadge");
+      const sendPanel = document.getElementById("sendPanel");
+      const receivePanel = document.getElementById("receivePanel");
+      const newItemNotice = document.getElementById("newItemNotice");
+      const browserDownloadHint = document.getElementById("browserDownloadHint");
       let maxUploadBytes = Number.POSITIVE_INFINITY;
       let sessionReady = false;
       let uploadPending = false;
       let outboxItems = [];
       let outboxPollTimer = null;
       let lastOutboxError = "";
+      let activeTab = "send";
+      let previousOutboxIds = new Set();
 
       function devLog(message) {
         if (new URLSearchParams(location.search).get("debug") === "1") console.debug("[droplite]", message);
@@ -949,6 +998,41 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         return t("textItem");
       }
 
+      function showTab(tab) {
+        activeTab = tab;
+        const isReceive = tab === "receive";
+        sendTab.setAttribute("aria-selected", String(!isReceive));
+        receiveTab.setAttribute("aria-selected", String(isReceive));
+        sendPanel.hidden = isReceive;
+        receivePanel.hidden = !isReceive;
+        if (isReceive) newItemNotice.hidden = true;
+      }
+
+      function updateReceiveBadge() {
+        receiveBadge.textContent = String(outboxItems.length);
+        const hasDownloadableItems = outboxItems.some((item) => item.kind !== "text");
+        browserDownloadHint.hidden = !(restrictedDownloadBrowser() && hasDownloadableItems);
+      }
+
+      function dedupeOutboxItems(items) {
+        const seen = new Set();
+        const unique = [];
+        for (const item of items) {
+          if (!item || seen.has(item.id)) continue;
+          seen.add(item.id);
+          unique.push(item);
+        }
+        return unique;
+      }
+
+      function restrictedDownloadBrowser() {
+        return /MicroMessenger|WeChat|QQ\//i.test(navigator.userAgent);
+      }
+
+      function downloadUrlFor(item) {
+        return "/api/outbox/" + encodeURIComponent(item.id) + "/download?token=" + encodeURIComponent(token);
+      }
+
       function setOutboxStatus(message, isError) {
         outboxStatus.textContent = message;
         outboxStatus.className = isError ? "muted error" : "muted";
@@ -957,6 +1041,7 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
       function renderOutbox() {
         if (!outboxList || !outboxStatus) return;
         outboxList.textContent = "";
+        updateReceiveBadge();
 
         if (outboxItems.length === 0) {
           setOutboxStatus(t("noItemsFromDesktopYet"), false);
@@ -1013,9 +1098,19 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
             downloadButton.textContent = t("download");
             downloadButton.addEventListener("click", () => downloadOutboxFile(item, downloadButton));
             actions.append(downloadButton);
+
+            const copyLinkButton = document.createElement("button");
+            copyLinkButton.type = "button";
+            copyLinkButton.textContent = t("copyDownloadLink");
+            copyLinkButton.addEventListener("click", async () => {
+              await writeClipboardText(new URL(downloadUrlFor(item), location.href).toString());
+              copyLinkButton.textContent = t("downloadLinkCopied");
+            });
+            actions.append(copyLinkButton);
           }
 
           card.append(actions);
+          if (item.kind !== "text") card.append(downloadFallbackNode(item));
           outboxList.append(card);
         }
       }
@@ -1031,7 +1126,11 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
           }
           if (!response.ok) throw new Error(t("failedToLoadDesktopItems"));
           const data = await response.json();
-          outboxItems = Array.isArray(data.items) ? data.items : [];
+          const nextItems = dedupeOutboxItems(Array.isArray(data.items) ? data.items : []);
+          const hasNew = nextItems.some((item) => !previousOutboxIds.has(item.id));
+          previousOutboxIds = new Set(nextItems.map((item) => item.id));
+          outboxItems = nextItems;
+          if (hasNew && activeTab === "send") newItemNotice.hidden = false;
           lastOutboxError = "";
           renderOutbox();
         } catch (error) {
@@ -1039,6 +1138,7 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
           if (lastOutboxError !== message) {
             lastOutboxError = message;
             setOutboxStatus(message, true);
+            if (activeTab === "send") setStatus(message, "error");
           }
         }
       }
@@ -1080,29 +1180,72 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         try {
           await writeClipboardText(item.content || "");
           button.textContent = t("copied");
-          await acknowledgeOutboxItem(item.id);
-          void fetchOutbox();
+          acknowledgeOutboxItem(item.id).then(() => fetchOutbox()).catch(() => {});
         } catch (_) {
           setOutboxStatus(t("sendFailed"), true);
         }
       }
 
       async function downloadOutboxFile(item, button) {
+        const url = downloadUrlFor(item);
         try {
+          if (restrictedDownloadBrowser()) {
+            showDownloadFallback(item, url);
+            setOutboxStatus(t("downloadMayBeBlockedInThisBrowser"), true);
+            return;
+          }
           button.textContent = t("downloading");
           const link = document.createElement("a");
-          link.href = "/api/outbox/" + encodeURIComponent(item.id) + "/download?token=" + encodeURIComponent(token);
+          link.href = url;
           link.download = item.displayName || "";
+          link.target = "_blank";
           link.rel = "noopener";
           document.body.appendChild(link);
           link.click();
           link.remove();
-          await acknowledgeOutboxItem(item.id);
           button.textContent = t("downloadStarted");
-          void fetchOutbox();
+          setOutboxStatus(t("downloadStarted"), false);
+          acknowledgeOutboxItem(item.id).then(() => fetchOutbox()).catch(() => {});
         } catch (_) {
           button.textContent = t("download");
           setOutboxStatus(t("failedToDownloadFile"), true);
+        }
+      }
+
+      function downloadFallbackNode(item) {
+        const node = document.createElement("div");
+        node.className = "download-fallback";
+        node.id = "downloadFallback-" + item.id;
+        node.hidden = true;
+
+        const message = document.createElement("p");
+        message.textContent = t("pleaseOpenSystemBrowserToDownload");
+        node.append(message);
+
+        const link = document.createElement("a");
+        link.href = downloadUrlFor(item);
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = t("openInBrowserToDownload");
+        node.append(link);
+
+        const copyButton = document.createElement("button");
+        copyButton.type = "button";
+        copyButton.textContent = t("copyDownloadLink");
+        copyButton.addEventListener("click", async () => {
+          await writeClipboardText(new URL(downloadUrlFor(item), location.href).toString());
+          copyButton.textContent = t("downloadLinkCopied");
+        });
+        node.append(copyButton);
+        return node;
+      }
+
+      function showDownloadFallback(item, url) {
+        const node = document.getElementById("downloadFallback-" + item.id);
+        if (node) {
+          const link = node.querySelector("a");
+          if (link) link.href = url;
+          node.hidden = false;
         }
       }
 
@@ -1282,6 +1425,8 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         applyLanguage();
         checkSession().catch(() => undefined);
       });
+      sendTab.addEventListener("click", () => showTab("send"));
+      receiveTab.addEventListener("click", () => showTab("receive"));
       sendText.addEventListener("click", sendTextValue);
       sendPhoto.addEventListener("click", () => photoInput.click());
       takePhoto.addEventListener("click", () => takePhotoInput.click());

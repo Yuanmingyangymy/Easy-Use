@@ -166,11 +166,19 @@ Desktop UI integration:
 Mobile UI integration:
 
 - The mobile page keeps the existing `Send to desktop` upload controls.
-- A `Receive from desktop` section polls `GET /api/outbox?token=...` about every 1.5 seconds while the page is visible.
+- The mobile page uses tabs for `Send to desktop` and `Receive from desktop` so a long desktop outbox cannot bury the phone-to-desktop upload controls.
+- A `Receive from desktop` tab polls `GET /api/outbox?token=...` about every 1.5 seconds while the page is visible.
+- Polling replaces the list from the server and de-duplicates by item id before rendering.
 - Text items render as copyable cards. Copying text calls `POST /api/outbox/:id/ack?token=...`.
-- File, image, and video items render as download cards. Download uses `GET /api/outbox/:id/download?token=...` and then acknowledges the item.
+- File, image, and video items render as download cards. Download uses `GET /api/outbox/:id/download?token=...` and then acknowledges the item after a download/open action is triggered.
+- Embedded browser environments that may block downloads show a system-browser and copy-link fallback rather than silently failing.
+- WeChat's in-app browser is detected by user agent only for UX messaging. It shows a dedicated hint to open the page in the system browser. This detection is not a security mechanism.
+- File cards always expose `Download` and `Copy download link`. Copying a link does not acknowledge the item because it does not prove the file was downloaded.
 - The phone page uses item ids and the session token only. It never receives or displays desktop absolute paths.
+- Manual bidirectional QA for this development branch is tracked in [`v0.2-manual-qa.md`](v0.2-manual-qa.md).
 - If the token expires, polling stops and the page shows the session expired state.
+
+Desktop drag-and-drop integration de-duplicates paths within a single drop event and ignores duplicate drop events from the same gesture for a short window. Intentional repeated drops are still allowed as separate user actions.
 
 Polling is preferred over WebSocket for v0.2 because it is simpler, broadly compatible with phone browsers, easier to debug, and less likely to destabilize the v0.1 upload path. A future version can revisit WebSocket if the product need becomes clear.
 
