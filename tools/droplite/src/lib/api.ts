@@ -15,6 +15,28 @@ export function openReceiveFolder(): Promise<void> {
   return invoke<void>("open_receive_folder");
 }
 
+export function getReceiveDirectory(): Promise<string> {
+  return invoke<string>("get_receive_directory");
+}
+
+export function setReceiveDirectory(path: string): Promise<string> {
+  return invoke<string>("set_receive_directory", { path });
+}
+
+export function resetReceiveDirectory(): Promise<string> {
+  return invoke<string>("reset_receive_directory");
+}
+
+export async function chooseReceiveDirectory(title: string): Promise<string | null> {
+  const selected = await open({
+    directory: true,
+    multiple: false,
+    title
+  });
+
+  return Array.isArray(selected) ? (selected[0] ?? null) : selected;
+}
+
 export function addOutboxText(content: string): Promise<OutboxItem> {
   return invoke<OutboxItem>("add_outbox_text", { content });
 }

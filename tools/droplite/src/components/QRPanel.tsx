@@ -3,12 +3,14 @@ import { QRCodeCanvas } from "qrcode.react";
 import type { SessionView } from "../lib/types";
 import { formatBytes } from "../lib/format";
 import { addLangParam, useI18n } from "../i18n";
+import { ReceiveFolderControl } from "./ReceiveFolderControl";
 
 interface QRPanelProps {
   session: SessionView;
+  onReceiveDirectoryChange: (path: string) => void;
 }
 
-export function QRPanel({ session }: QRPanelProps) {
+export function QRPanel({ session, onReceiveDirectoryChange }: QRPanelProps) {
   const { language, t } = useI18n();
   const connectionUrl = addLangParam(session.connection_url, language);
   const canScan = session.is_ready && session.port !== 0;
@@ -34,10 +36,7 @@ export function QRPanel({ session }: QRPanelProps) {
             <dt>{t("maxFile")}</dt>
             <dd>{formatBytes(session.max_upload_bytes)}</dd>
           </div>
-          <div>
-            <dt>{t("savedTo")}</dt>
-            <dd title={session.receive_dir}>{session.receive_dir}</dd>
-          </div>
+          <ReceiveFolderControl receiveDir={session.receive_dir} onChange={onReceiveDirectoryChange} />
         </dl>
       </div>
     </section>

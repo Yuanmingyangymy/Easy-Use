@@ -70,6 +70,36 @@ Uploads are written to a temporary `.part` file first. DropLite flushes and sync
 
 Received text is kept only in memory for the current app session. Files remain because the user intentionally received them.
 
+## Receive Directory Configuration
+
+Status: implemented on the v0.2 feature branch. This is a product polish improvement for the existing phone-to-desktop receive flow, not part of the desktop-to-phone outbox.
+
+The default receive directory remains `Downloads/DropLite`. Users can change it from the desktop UI with `Change folder`, open it with `Open folder`, or restore the default with `Reset`.
+
+The Rust backend persists only the selected receive directory in a small local JSON config file:
+
+```text
+<system config dir>/Easy-Use/DropLite/config.json
+```
+
+On Windows this resolves under the user's app config area, such as AppData. The config is local to the computer and is not written into the repository or the receive directory.
+
+Startup behavior:
+
+- If no config exists, DropLite uses `Downloads/DropLite`.
+- If the configured directory exists, DropLite uses it.
+- If the configured directory is missing, DropLite attempts to create it.
+- If the config is damaged or the directory is unusable, DropLite falls back to the default receive directory.
+
+Runtime behavior:
+
+- Upload saving reads the current backend receive directory.
+- `Open folder` opens the current configured directory.
+- `Refresh session` does not reset the receive directory.
+- Changing the receive directory does not move old files.
+- The setting applies only to new phone-to-desktop received files.
+- Desktop-to-phone outbox files keep backend-only references to the user's chosen source files and are not copied into the receive directory.
+
 ## Image Previews
 
 The desktop receive list does not expose raw Windows file paths to the WebView. For received images, Rust provides a session-token-protected preview URL:

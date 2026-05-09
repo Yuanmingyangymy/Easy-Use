@@ -80,6 +80,21 @@ A locally built DropLite app has the same security model as development mode: lo
 
 Current local builds are not code signed. Windows may show a security warning, and Windows Firewall may ask for network permission. Allow private network access only on trusted networks.
 
+## Configurable Receive Directory
+
+Status: implemented on the v0.2 feature branch.
+
+Users can choose where phone-to-desktop received files are saved. DropLite stores this receive directory preference only on the local computer in a small config file under the user's app config area.
+
+Security notes:
+
+- DropLite does not upload the receive directory path to any cloud service.
+- The configured path is used only by the local Rust backend.
+- New received files are saved to the current configured receive directory.
+- Old files are not moved when the directory changes.
+- If the configured directory is unavailable, DropLite falls back to the default receive directory.
+- This setting does not affect desktop-to-phone outbox source files. Outbox file paths remain backend-only references and are not shown to the phone.
+
 ## Future Security Improvements
 
 Potential upgrades:

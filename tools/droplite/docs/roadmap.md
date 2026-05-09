@@ -26,6 +26,7 @@ Status: Phase 1 backend model and Phase 2 desktop send UI implemented on the v0.
 - Token-protected outbox list, download, and ack APIs.
 - Desktop `Send to phone` panel.
 - Native file picker and Tauri file drop support for adding outbox files.
+- Configurable receive folder for phone-to-desktop files.
 - Better receive and download flow on mobile.
 - More polished settings.
 - Optional keep original filename behavior.

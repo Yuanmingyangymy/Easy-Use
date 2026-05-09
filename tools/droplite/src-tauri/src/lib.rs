@@ -29,8 +29,38 @@ async fn refresh_session(state: tauri::State<'_, Arc<AppState>>) -> Result<Deskt
 #[cfg(not(test))]
 #[tauri::command]
 async fn open_receive_folder(state: tauri::State<'_, Arc<AppState>>) -> Result<(), String> {
-    let path = state.config().receive_dir.clone();
+    let path = state.receive_dir().map_err(|error| error.to_string())?;
     open::that(path).map_err(|error| format!("Could not open receive folder: {error}"))
+}
+
+#[cfg(not(test))]
+#[tauri::command]
+async fn get_receive_directory(state: tauri::State<'_, Arc<AppState>>) -> Result<String, String> {
+    state
+        .receive_dir()
+        .map(|path| path.display().to_string())
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(not(test))]
+#[tauri::command]
+async fn set_receive_directory(
+    state: tauri::State<'_, Arc<AppState>>,
+    path: String,
+) -> Result<String, String> {
+    state
+        .set_receive_dir(path.into())
+        .map(|path| path.display().to_string())
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(not(test))]
+#[tauri::command]
+async fn reset_receive_directory(state: tauri::State<'_, Arc<AppState>>) -> Result<String, String> {
+    state
+        .reset_receive_dir()
+        .map(|path| path.display().to_string())
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(not(test))]
@@ -86,6 +116,9 @@ pub fn run() {
             get_desktop_state,
             refresh_session,
             open_receive_folder,
+            get_receive_directory,
+            set_receive_directory,
+            reset_receive_directory,
             add_outbox_text,
             add_outbox_file,
             list_outbox_items

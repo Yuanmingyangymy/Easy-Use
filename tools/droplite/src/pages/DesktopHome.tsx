@@ -62,6 +62,20 @@ export function DesktopHome() {
     }
   };
 
+  const handleReceiveDirectoryChange = (path: string) => {
+    setState((current) =>
+      current
+        ? {
+            ...current,
+            session: {
+              ...current.session,
+              receive_dir: path
+            }
+          }
+        : current
+    );
+  };
+
   if (!state) {
     return (
       <main className="shell centered">
@@ -76,7 +90,7 @@ export function DesktopHome() {
       {error ? <div className="error-banner">{error}</div> : null}
       <div className="workspace">
         <div className="primary-column">
-          <QRPanel session={state.session} />
+          <QRPanel session={state.session} onReceiveDirectoryChange={handleReceiveDirectoryChange} />
           <SendToPhonePanel key={state.session.connection_url} />
           <div className="bottom-row">
             <SecurityStatus session={state.session} />

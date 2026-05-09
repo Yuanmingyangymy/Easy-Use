@@ -233,6 +233,43 @@ dd {
   text-overflow: ellipsis;
 }
 
+.receive-folder-control {
+  display: grid;
+  gap: 10px;
+}
+
+.receive-folder-control p {
+  color: #718177;
+  font-size: 0.84rem;
+  margin: 4px 0 0;
+}
+
+.folder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.folder-actions .text-button {
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.folder-notice {
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.folder-notice.ok {
+  background: #e9f6ed;
+  color: #1f6b3d;
+}
+
+.folder-notice.error {
+  background: #fff1ed;
+  color: #8d2f24;
+}
+
 .bottom-row {
   align-items: stretch;
   gap: 18px;

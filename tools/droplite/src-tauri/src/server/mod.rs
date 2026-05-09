@@ -3,7 +3,9 @@ pub mod routes;
 pub mod session;
 pub mod upload;
 
-use crate::{errors::AppError, network::local_ip::detect_local_ip, storage};
+use crate::{
+    errors::AppError, network::local_ip::detect_local_ip, storage::config::ReceiveDirectoryConfig,
+};
 use serde::Serialize;
 use std::{
     path::PathBuf,
@@ -31,7 +33,9 @@ pub struct AppConfig {
     pub device_name: String,
     pub local_ip: String,
     pub max_upload_bytes: u64,
+    pub default_receive_dir: PathBuf,
     pub receive_dir: PathBuf,
+    pub receive_config: ReceiveDirectoryConfig,
     pub ttl_secs: u64,
 }
 
@@ -79,7 +83,40 @@ pub enum ReceivedKind {
 
 #[cfg(test)]
 mod tests {
-    use super::ReceivedKind;
+    use super::{AppConfig, AppState, ReceivedKind, DEFAULT_MAX_UPLOAD_BYTES};
+    use crate::storage::config::ReceiveDirectoryConfig;
+    use std::{
+        fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    fn test_root(name: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        std::env::temp_dir().join(format!("droplite-app-state-{name}-{nonce}"))
+    }
+
+    fn test_state(name: &str) -> (AppState, PathBuf) {
+        let root = test_root(name);
+        let default_receive_dir = root.join("Downloads").join("DropLite");
+        let receive_config =
+            ReceiveDirectoryConfig::new(root.join("config.json"), default_receive_dir.clone());
+        let state = AppState::new(AppConfig {
+            device_name: "Test computer".to_string(),
+            local_ip: "127.0.0.1".to_string(),
+            max_upload_bytes: DEFAULT_MAX_UPLOAD_BYTES,
+            default_receive_dir: default_receive_dir.clone(),
+            receive_dir: default_receive_dir,
+            receive_config,
+            ttl_secs: 600,
+        })
+        .expect("state");
+
+        (state, root)
+    }
 
     #[test]
     fn received_kind_serializes_for_frontend() {
@@ -100,10 +137,44 @@ mod tests {
             "\"file\""
         );
     }
+
+    #[test]
+    fn receive_dir_can_change_and_survives_session_refresh() {
+        let (state, root) = test_state("change");
+        let custom = root.join("Custom");
+
+        let updated = state.set_receive_dir(custom.clone()).expect("set dir");
+        state.refresh_session().expect("refresh session");
+
+        assert_eq!(state.receive_dir().expect("receive dir"), updated);
+        assert_eq!(
+            state.session_view().expect("session").receive_dir,
+            updated.display().to_string()
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn receive_dir_reset_restores_default() {
+        let (state, root) = test_state("reset");
+        state
+            .set_receive_dir(root.join("Custom"))
+            .expect("set custom");
+
+        let reset = state.reset_receive_dir().expect("reset");
+
+        assert_eq!(
+            reset,
+            fs::canonicalize(root.join("Downloads").join("DropLite")).unwrap()
+        );
+        assert_eq!(state.receive_dir().expect("receive dir"), reset);
+        let _ = fs::remove_dir_all(root);
+    }
 }
 
 pub struct AppState {
     config: AppConfig,
+    receive_dir: RwLock<PathBuf>,
     session: RwLock<Session>,
     received: RwLock<Vec<ReceivedItem>>,
     outbox: RwLock<OutboxState>,
@@ -122,12 +193,17 @@ impl AppConfig {
             .and_then(|name| name.into_string().ok())
             .filter(|name| !name.trim().is_empty())
             .unwrap_or_else(|| "This computer".to_string());
+        let receive_config = ReceiveDirectoryConfig::load_default()?;
+        let receive_dir = receive_config.get_receive_dir()?;
+        let default_receive_dir = receive_config.default_dir().to_path_buf();
 
         Ok(Self {
             device_name,
             local_ip,
             max_upload_bytes: DEFAULT_MAX_UPLOAD_BYTES,
-            receive_dir: storage::default_receive_dir()?,
+            default_receive_dir,
+            receive_dir,
+            receive_config,
             ttl_secs: DEFAULT_SESSION_TTL_SECS,
         })
     }
@@ -136,6 +212,7 @@ impl AppConfig {
 impl AppState {
     pub fn new(config: AppConfig) -> Result<Self, AppError> {
         Ok(Self {
+            receive_dir: RwLock::new(config.receive_dir.clone()),
             session: RwLock::new(Session::new(config.ttl_secs, 0)),
             received: RwLock::new(Vec::new()),
             outbox: RwLock::new(OutboxState::default()),
@@ -147,6 +224,33 @@ impl AppState {
 
     pub fn config(&self) -> &AppConfig {
         &self.config
+    }
+
+    pub fn receive_dir(&self) -> Result<PathBuf, AppError> {
+        self.receive_dir
+            .read()
+            .map_err(|_| AppError::LockFailed("receive_dir"))
+            .map(|path| path.clone())
+    }
+
+    pub fn set_receive_dir(&self, path: PathBuf) -> Result<PathBuf, AppError> {
+        let path = self.config.receive_config.set_receive_dir(path)?;
+        let mut receive_dir = self
+            .receive_dir
+            .write()
+            .map_err(|_| AppError::LockFailed("receive_dir"))?;
+        *receive_dir = path.clone();
+        Ok(path)
+    }
+
+    pub fn reset_receive_dir(&self) -> Result<PathBuf, AppError> {
+        let path = self.config.receive_config.reset_receive_dir()?;
+        let mut receive_dir = self
+            .receive_dir
+            .write()
+            .map_err(|_| AppError::LockFailed("receive_dir"))?;
+        *receive_dir = path.clone();
+        Ok(path)
     }
 
     #[cfg(not(test))]
@@ -302,7 +406,7 @@ impl AppState {
             local_ip: self.config.local_ip.clone(),
             max_upload_bytes: self.config.max_upload_bytes,
             port: session.port,
-            receive_dir: self.config.receive_dir.display().to_string(),
+            receive_dir: self.receive_dir()?.display().to_string(),
             security_note: if self.config.local_ip == "127.0.0.1" {
                 "No LAN IP was detected. Phone access may not work until a local network is available.".to_string()
             } else {

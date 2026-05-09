@@ -277,7 +277,8 @@ async fn save_upload_field(
     state: &Arc<AppState>,
     field: &mut axum::extract::multipart::Field<'_>,
 ) -> Result<ReceivedItem, AppError> {
-    ensure_receive_dir(&state.config().receive_dir).await?;
+    let receive_dir = state.receive_dir()?;
+    ensure_receive_dir(&receive_dir).await?;
     let original_name = field.file_name().map(|value| value.to_string());
     let content_type = field.content_type().map(|value| value.to_string());
     debug_log(&format!(
@@ -287,7 +288,7 @@ async fn save_upload_field(
     ));
     let received_at = now_epoch_secs();
     let target_path = unique_upload_path(
-        &state.config().receive_dir,
+        &receive_dir,
         original_name.as_deref(),
         content_type.as_deref(),
         received_at,
@@ -297,7 +298,7 @@ async fn save_upload_field(
         .and_then(|value| value.to_str())
         .unwrap_or("file.bin")
         .to_string();
-    let temp_path = unique_temp_path(&state.config().receive_dir);
+    let temp_path = unique_temp_path(&receive_dir);
     let mut temp_guard = TempFileGuard::new(temp_path);
     let mut output = LimitedFileWriter::create(temp_guard.path().to_path_buf()).await?;
     debug_log(&format!(
@@ -430,7 +431,7 @@ async fn received_preview(
         .as_deref()
         .ok_or_else(|| AppError::NotFound("Received file path was not found.".to_string()))?;
     let path = std::path::PathBuf::from(path);
-    let receive_dir = fs::canonicalize(&state.config().receive_dir).await?;
+    let receive_dir = fs::canonicalize(&state.receive_dir()?).await?;
     let file_path = fs::canonicalize(&path).await?;
 
     if !file_path.starts_with(&receive_dir) {
@@ -464,7 +465,10 @@ async fn received_preview(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::server::{session::Session, AppConfig, DEFAULT_MAX_UPLOAD_BYTES};
+    use crate::{
+        server::{session::Session, AppConfig, DEFAULT_MAX_UPLOAD_BYTES},
+        storage::config::ReceiveDirectoryConfig,
+    };
     use std::{fs as std_fs, path::PathBuf};
 
     fn test_dir(name: &str) -> PathBuf {
@@ -476,12 +480,16 @@ mod tests {
 
     fn test_state(token: &str) -> Arc<AppState> {
         let receive_dir = test_dir("receive");
+        let receive_config =
+            ReceiveDirectoryConfig::new(receive_dir.join("config.json"), receive_dir.clone());
         let state = Arc::new(
             AppState::new(AppConfig {
                 device_name: "Test computer".to_string(),
                 local_ip: "127.0.0.1".to_string(),
                 max_upload_bytes: DEFAULT_MAX_UPLOAD_BYTES,
+                default_receive_dir: receive_dir.clone(),
                 receive_dir,
+                receive_config,
                 ttl_secs: 600,
             })
             .expect("state"),
