@@ -51,7 +51,7 @@ impl ReceiveDirectoryConfig {
     pub fn set_receive_dir(&self, path: PathBuf) -> io::Result<PathBuf> {
         let path = validate_receive_dir(&path)?;
         self.write_config(&PersistedConfig {
-            receive_dir: path.clone(),
+            receive_dir: PathBuf::from(display_path(&path)),
         })?;
         Ok(path)
     }
@@ -59,7 +59,7 @@ impl ReceiveDirectoryConfig {
     pub fn reset_receive_dir(&self) -> io::Result<PathBuf> {
         let path = self.ensure_default_dir()?;
         self.write_config(&PersistedConfig {
-            receive_dir: path.clone(),
+            receive_dir: PathBuf::from(display_path(&path)),
         })?;
         Ok(path)
     }
@@ -87,6 +87,10 @@ impl ReceiveDirectoryConfig {
     }
 }
 
+pub fn display_path(path: &Path) -> String {
+    normalize_windows_verbatim_prefix(&path.display().to_string())
+}
+
 pub fn default_config_path() -> PathBuf {
     dirs_next::config_dir()
         .or_else(dirs_next::data_dir)
@@ -94,6 +98,21 @@ pub fn default_config_path() -> PathBuf {
         .join("Easy-Use")
         .join("DropLite")
         .join(CONFIG_FILE_NAME)
+}
+
+fn normalize_windows_verbatim_prefix(path: &str) -> String {
+    const UNC_PREFIX: &str = r"\\?\UNC\";
+    const DRIVE_PREFIX: &str = r"\\?\";
+
+    if let Some(rest) = path.strip_prefix(UNC_PREFIX) {
+        return format!(r"\\{rest}");
+    }
+
+    if let Some(rest) = path.strip_prefix(DRIVE_PREFIX) {
+        return rest.to_string();
+    }
+
+    path.to_string()
 }
 
 fn validate_receive_dir(path: &Path) -> io::Result<PathBuf> {
@@ -237,6 +256,47 @@ mod tests {
             result.expect_err("file rejected").kind(),
             ErrorKind::InvalidInput
         );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn display_path_removes_windows_extended_drive_prefix() {
+        assert_eq!(
+            normalize_windows_verbatim_prefix(r"\\?\C:\Users\ymy\Desktop"),
+            r"C:\Users\ymy\Desktop"
+        );
+        assert_eq!(
+            normalize_windows_verbatim_prefix(r"\\?\C:\Users\ymy\Downloads\DropLite"),
+            r"C:\Users\ymy\Downloads\DropLite"
+        );
+    }
+
+    #[test]
+    fn display_path_removes_windows_extended_unc_prefix() {
+        assert_eq!(
+            normalize_windows_verbatim_prefix(r"\\?\UNC\server\share\folder"),
+            r"\\server\share\folder"
+        );
+    }
+
+    #[test]
+    fn display_path_keeps_normal_path_unchanged() {
+        assert_eq!(
+            normalize_windows_verbatim_prefix(r"C:\Users\ymy\Desktop"),
+            r"C:\Users\ymy\Desktop"
+        );
+    }
+
+    #[test]
+    fn config_file_saves_display_friendly_path() {
+        let (store, root) = test_store("display-save");
+        let custom = root.join("Custom");
+
+        let saved = store.set_receive_dir(custom).expect("set dir");
+        let contents = fs::read_to_string(&store.config_path).expect("config");
+
+        assert!(!contents.contains(r"\\?\"));
+        assert!(contents.contains(&display_path(&saved).replace('\\', "\\\\")));
         let _ = fs::remove_dir_all(root);
     }
 }

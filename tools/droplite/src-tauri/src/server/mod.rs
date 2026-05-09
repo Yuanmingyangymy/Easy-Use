@@ -4,7 +4,9 @@ pub mod session;
 pub mod upload;
 
 use crate::{
-    errors::AppError, network::local_ip::detect_local_ip, storage::config::ReceiveDirectoryConfig,
+    errors::AppError,
+    network::local_ip::detect_local_ip,
+    storage::config::{display_path, ReceiveDirectoryConfig},
 };
 use serde::Serialize;
 use std::{
@@ -149,7 +151,7 @@ mod tests {
         assert_eq!(state.receive_dir().expect("receive dir"), updated);
         assert_eq!(
             state.session_view().expect("session").receive_dir,
-            updated.display().to_string()
+            crate::storage::config::display_path(&updated)
         );
         let _ = fs::remove_dir_all(root);
     }
@@ -168,6 +170,34 @@ mod tests {
             fs::canonicalize(root.join("Downloads").join("DropLite")).unwrap()
         );
         assert_eq!(state.receive_dir().expect("receive dir"), reset);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn receive_dir_display_is_human_readable() {
+        let root = test_root("display");
+        let default_receive_dir = root.join("Downloads").join("DropLite");
+        let receive_config =
+            ReceiveDirectoryConfig::new(root.join("config.json"), default_receive_dir.clone());
+        let state = AppState::new(AppConfig {
+            device_name: "Test computer".to_string(),
+            local_ip: "127.0.0.1".to_string(),
+            max_upload_bytes: DEFAULT_MAX_UPLOAD_BYTES,
+            default_receive_dir,
+            receive_dir: PathBuf::from(r"\\?\C:\Users\ymy\Downloads\DropLite"),
+            receive_config,
+            ttl_secs: 600,
+        })
+        .expect("state");
+
+        assert_eq!(
+            state.receive_dir_display().expect("display"),
+            r"C:\Users\ymy\Downloads\DropLite"
+        );
+        assert_eq!(
+            state.session_view().expect("session").receive_dir,
+            r"C:\Users\ymy\Downloads\DropLite"
+        );
         let _ = fs::remove_dir_all(root);
     }
 }
@@ -231,6 +261,13 @@ impl AppState {
             .read()
             .map_err(|_| AppError::LockFailed("receive_dir"))
             .map(|path| path.clone())
+    }
+
+    pub fn receive_dir_display(&self) -> Result<String, AppError> {
+        self.receive_dir
+            .read()
+            .map_err(|_| AppError::LockFailed("receive_dir"))
+            .map(|path| display_path(&path))
     }
 
     pub fn set_receive_dir(&self, path: PathBuf) -> Result<PathBuf, AppError> {
@@ -406,7 +443,7 @@ impl AppState {
             local_ip: self.config.local_ip.clone(),
             max_upload_bytes: self.config.max_upload_bytes,
             port: session.port,
-            receive_dir: self.receive_dir()?.display().to_string(),
+            receive_dir: self.receive_dir_display()?,
             security_note: if self.config.local_ip == "127.0.0.1" {
                 "No LAN IP was detected. Phone access may not work until a local network is available.".to_string()
             } else {

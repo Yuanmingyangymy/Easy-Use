@@ -17,6 +17,7 @@ export function ReceiveFolderControl({ receiveDir, onChange }: ReceiveFolderCont
   const { t } = useI18n();
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
+  const visibleReceiveDir = normalizeReceivePath(receiveDir);
 
   const handleChange = async () => {
     setBusy(true);
@@ -27,7 +28,7 @@ export function ReceiveFolderControl({ receiveDir, onChange }: ReceiveFolderCont
       }
 
       const updated = await setReceiveDirectory(selected);
-      onChange(updated);
+      onChange(normalizeReceivePath(updated));
       setNotice({ kind: "ok", text: t("receiveFolderUpdated") });
     } catch {
       setNotice({ kind: "error", text: t("failedToUpdateReceiveFolder") });
@@ -40,7 +41,7 @@ export function ReceiveFolderControl({ receiveDir, onChange }: ReceiveFolderCont
     setBusy(true);
     try {
       const updated = await resetReceiveDirectory();
-      onChange(updated);
+      onChange(normalizeReceivePath(updated));
       setNotice({ kind: "ok", text: t("receiveFolderResetToDefault") });
     } catch {
       setNotice({ kind: "error", text: t("failedToUpdateReceiveFolder") });
@@ -53,7 +54,7 @@ export function ReceiveFolderControl({ receiveDir, onChange }: ReceiveFolderCont
     <div className="receive-folder-control">
       <div>
         <dt>{t("savedTo")}</dt>
-        <dd title={receiveDir}>{receiveDir}</dd>
+        <dd title={visibleReceiveDir}>{visibleReceiveDir}</dd>
         <p>{t("newFilesSavedHere")}</p>
       </div>
       <div className="folder-actions">
@@ -77,4 +78,17 @@ export function ReceiveFolderControl({ receiveDir, onChange }: ReceiveFolderCont
       ) : null}
     </div>
   );
+}
+
+function normalizeReceivePath(path: string): string {
+  const uncPrefix = "\\\\?\\UNC\\";
+  const drivePrefix = "\\\\?\\";
+
+  if (path.startsWith(uncPrefix)) {
+    return "\\\\" + path.slice(uncPrefix.length);
+  }
+  if (path.startsWith(drivePrefix)) {
+    return path.slice(drivePrefix.length);
+  }
+  return path;
 }

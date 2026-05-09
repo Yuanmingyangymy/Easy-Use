@@ -26,16 +26,23 @@ describe("ReceiveFolderControl", () => {
     expect(screen.getByRole("button", { name: "Reset" })).toBeInTheDocument();
   });
 
+  it("does not show Windows extended path prefixes", () => {
+    render(<ReceiveFolderControl receiveDir={String.raw`\\?\C:\Users\me\Downloads\DropLite`} onChange={() => undefined} />);
+
+    expect(screen.getByText(String.raw`C:\Users\me\Downloads\DropLite`)).toBeInTheDocument();
+    expect(screen.queryByText(/\\\\\?\\/)).not.toBeInTheDocument();
+  });
+
   it("updates the directory after choosing a folder", async () => {
     const onChange = vi.fn();
     api.chooseReceiveDirectory.mockResolvedValue("D:/DropLite");
-    api.setReceiveDirectory.mockResolvedValue("D:/DropLite");
+    api.setReceiveDirectory.mockResolvedValue(String.raw`\\?\D:\DropLite`);
     render(<ReceiveFolderControl receiveDir="C:/Old" onChange={onChange} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Change folder" }));
 
     await waitFor(() => expect(api.setReceiveDirectory).toHaveBeenCalledWith("D:/DropLite"));
-    expect(onChange).toHaveBeenCalledWith("D:/DropLite");
+    expect(onChange).toHaveBeenCalledWith(String.raw`D:\DropLite`);
     expect(screen.getByText("Receive folder updated")).toBeInTheDocument();
   });
 
@@ -62,13 +69,13 @@ describe("ReceiveFolderControl", () => {
 
   it("resets the directory to default", async () => {
     const onChange = vi.fn();
-    api.resetReceiveDirectory.mockResolvedValue("C:/Users/me/Downloads/DropLite");
+    api.resetReceiveDirectory.mockResolvedValue(String.raw`\\?\C:\Users\me\Downloads\DropLite`);
     render(<ReceiveFolderControl receiveDir="D:/DropLite" onChange={onChange} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
 
     await waitFor(() => expect(api.resetReceiveDirectory).toHaveBeenCalled());
-    expect(onChange).toHaveBeenCalledWith("C:/Users/me/Downloads/DropLite");
+    expect(onChange).toHaveBeenCalledWith(String.raw`C:\Users\me\Downloads\DropLite`);
     expect(screen.getByText("Receive folder reset to default")).toBeInTheDocument();
   });
 });

@@ -14,6 +14,9 @@ use std::sync::Arc;
 use server::{outbox::OutboxItem, AppConfig, AppState, DesktopState};
 
 #[cfg(not(test))]
+use storage::config::display_path;
+
+#[cfg(not(test))]
 #[tauri::command]
 async fn get_desktop_state(state: tauri::State<'_, Arc<AppState>>) -> Result<DesktopState, String> {
     state.desktop_state().map_err(|error| error.to_string())
@@ -37,8 +40,7 @@ async fn open_receive_folder(state: tauri::State<'_, Arc<AppState>>) -> Result<(
 #[tauri::command]
 async fn get_receive_directory(state: tauri::State<'_, Arc<AppState>>) -> Result<String, String> {
     state
-        .receive_dir()
-        .map(|path| path.display().to_string())
+        .receive_dir_display()
         .map_err(|error| error.to_string())
 }
 
@@ -50,7 +52,7 @@ async fn set_receive_directory(
 ) -> Result<String, String> {
     state
         .set_receive_dir(path.into())
-        .map(|path| path.display().to_string())
+        .map(|path| display_path(&path))
         .map_err(|error| error.to_string())
 }
 
@@ -59,7 +61,7 @@ async fn set_receive_directory(
 async fn reset_receive_directory(state: tauri::State<'_, Arc<AppState>>) -> Result<String, String> {
     state
         .reset_receive_dir()
-        .map(|path| path.display().to_string())
+        .map(|path| display_path(&path))
         .map_err(|error| error.to_string())
 }
 
