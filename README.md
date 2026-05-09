@@ -36,6 +36,12 @@ The root of this repository contains the Easy-Use project documentation and tool
 
 Before starting larger changes, create a branch from `master`. See [Git Workflow](docs/git-workflow.md).
 
+Codex and maintainer guidance:
+
+- [AGENTS.md](AGENTS.md): repository-level Codex/project instructions.
+- [tools/droplite/AGENTS.md](tools/droplite/AGENTS.md): DropLite-specific Codex instructions.
+- [tools/droplite/docs/PLANS.md](tools/droplite/docs/PLANS.md): active DropLite implementation plan.
+
 To work on DropLite:
 
 ```bash
