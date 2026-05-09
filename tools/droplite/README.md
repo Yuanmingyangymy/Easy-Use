@@ -1,70 +1,66 @@
 # DropLite
 
-DropLite is the first tool in the Easy-Use collection. It is a minimal, account-free, local-first temporary drop tool for sending text, photos, videos, and files from a phone browser to a desktop.
+DropLite is an Easy-Use tool for temporary cross-device transfer over the local network. It is designed to stay simple: no account, no cloud, no tracking, no permanent transfer history.
 
-No account. No cloud. Local-first. Temporary session. Open source. Phone browser to desktop.
+## v0.2.0 Preview
 
-## v0.1.0 Preview
+DropLite v0.2.0 Preview adds desktop-to-phone transfer on top of the existing phone-to-desktop flow, making DropLite a lightweight two-way local transfer tool.
 
-DropLite v0.1.0 Preview is the first usable preview release for sending text, photos, videos, and files from a phone browser to a desktop over the local network.
+DropLite v0.2.0 Preview 在原有“手机传电脑”的基础上，新增“电脑传手机”，让 DropLite 成为一个轻量的本地双向临时投递工具。
 
-DropLite v0.1.0 Preview 是首个可用预览版，支持通过手机浏览器将文字、图片、视频和文件在本地网络内投递到电脑。
-
-This is a preview release, not a final stable release. It currently supports phone to desktop transfer only, uses local-network HTTP, does not require an account, does not use cloud services, and does not persist transfer history after the app closes.
-
-## Screenshot
-
-Product screenshots will be added after the first packaged preview build. The MVP interface contains a desktop QR screen, session countdown, safety note, and a recent receive list.
+This is a preview release, not a final stable release. It still uses local-network HTTP and is intended for trusted private Wi-Fi networks.
 
 ## Core Features
 
 - Desktop app built with Tauri, Rust, React, TypeScript, and Vite.
-- Starts a temporary local-network HTTP server on an available port.
-- Detects the local LAN IP and shows a QR code for the phone.
-- Phone opens a browser upload page without installing an app.
-- Sends text, images, and files from phone to desktop.
-- Provides separate phone entry points for text, photos, videos, and files.
-- Saves received files to the user's Downloads/DropLite folder by default.
-- Names received files by type and receive time, such as `image-20260506-225801-001.jpg`.
-- Shows received text immediately and provides copy action.
-- Shows image thumbnails in the desktop receive list.
-- Supports English and Simplified Chinese UI.
-- Uses a random session token with a default 10-minute expiry.
-- Does not use accounts, cloud services, telemetry, ads, or transfer history.
+- QR-code based temporary local session.
+- Phone browser to desktop transfer for text, photos, videos, and files.
+- Desktop to phone transfer for text and files.
+- Mobile tabs for `Send to desktop` and `Receive from desktop`.
+- Desktop `Send to phone` panel with text input, file picker, and file drag-and-drop.
+- Configurable receive folder for phone-to-desktop files.
+- Timestamp-based received filenames such as `image-20260506-225801-001.jpg`.
+- Recently received list on desktop.
+- Copy actions for received text.
+- Token-protected outbox list, download, and acknowledgement APIs.
+- English and Simplified Chinese UI.
+- No account, no cloud service, no telemetry, no ads.
 
-## v0.1.0 Preview Scope
+## Current Preview Scope
 
 Supported:
 
-- Phone to desktop transfer.
-- Text upload.
-- Image upload.
+- Phone to desktop text upload.
+- Phone to desktop photo upload.
 - Take photo and send.
-- Video upload.
-- File upload.
-- Drag-and-drop upload where the mobile browser supports it.
-- Paste text on the phone page.
-- Token validation and expiry.
+- Phone to desktop video upload.
+- Phone to desktop generic file upload.
+- Desktop to phone text transfer.
+- Desktop to phone file transfer.
+- Desktop file drag-and-drop into the outbox.
+- Phone-side copy for desktop-sent text.
+- Phone-side download or download-link fallback for desktop-sent files.
+- Configurable receive folder with reset to default.
+- Token validation, session refresh, and session expiry.
 - Single-file upload limit of 200 MB by default.
 - Safe filename handling and non-overwriting save behavior.
-- English and Simplified Chinese UI.
 - Windows preview build.
 
-Not supported in this MVP:
+Not supported:
 
-- Desktop to phone transfer.
 - Public internet transfer.
 - User accounts.
-- Cloud sync.
+- Cloud sync or relay.
+- WebRTC.
+- Database-backed transfer history.
 - Chat.
-- Friend lists.
-- Device address books.
-- Phone apps.
+- Friend lists or device address books.
+- Phone app.
 - Folder sync.
 - Clipboard sync.
 - Multi-user rooms.
-- Transfer history.
-- Complex settings.
+- Automatic saving to the phone photo gallery.
+- Code signing.
 
 ## For Testers on Windows
 
@@ -75,30 +71,26 @@ Not supported in this MVP:
 5. On Windows, set this Wi-Fi network to Private.
 6. If the firewall asks for permission, allow Private networks.
 7. Scan the QR code with your phone browser.
-8. Send text, photos, videos, or files.
+8. Use `Send to desktop` on the phone, or `Send to phone` on the desktop.
+
+普通 Windows 试用步骤：
+
+1. 从 GitHub Release 页面下载安装包。
+2. 安装并打开 DropLite。
+3. 如果 Windows 出现安全提醒，这是因为当前预览版尚未代码签名。
+4. 确认手机和电脑连接到同一个 Wi-Fi。
+5. 在 Windows 中将当前 Wi-Fi 设置为“专用网络”。
+6. 如果防火墙请求权限，请允许“专用网络”访问。
+7. 用手机浏览器扫码。
+8. 可以从手机发送到电脑，也可以从电脑发送到手机。
 
 Use the installer from the Release assets for normal testing. The bare `src-tauri/target/release/droplite.exe` is a build artifact for developers and should not be treated as the primary distribution file.
 
 DropLite is a GUI app. A normal preview build should not open an extra black console window. If a console window appears, please report whether you launched DropLite from the installer, Start menu, installation folder, or the bare build artifact.
 
-## Windows 试用说明
-
-1. 从 GitHub Release 页面下载安装包。
-2. 安装并打开 DropLite。
-3. 如果 Windows 出现安全提醒，是因为当前预览版还没有代码签名。
-4. 确认手机和电脑连接到同一个 Wi-Fi。
-5. 在 Windows 中将当前 Wi-Fi 设置为“专用网络”。
-6. 如果防火墙请求权限，请允许“专用网络”访问。
-7. 用手机浏览器扫码。
-8. 发送文字、图片、视频或文件。
-
-普通试用请使用 Release 附件中的安装包。`src-tauri/target/release/droplite.exe` 是开发构建产物，不建议作为主要分发文件。
-
-DropLite 是 GUI 应用。正常的预览版启动时不应该额外弹出黑色控制台窗口。如果出现黑窗，请反馈你是通过安装包、开始菜单、安装目录，还是直接运行裸 exe 启动的。
-
 ## Security and Privacy
 
-DropLite 0.1 uses local-network HTTP. Data does not go through a third-party cloud service, and the app does not collect analytics or tracking data.
+DropLite uses local-network HTTP. Data does not go through a third-party cloud service, and the app does not collect analytics or tracking data.
 
 The QR code contains a local address, port, and short-lived session token:
 
@@ -108,9 +100,25 @@ http://<local-ip>:<port>/?token=<session-token>
 
 Requests must include the token. The token is generated at startup, can be refreshed manually, and expires after 10 minutes by default.
 
-Important boundary: local HTTP is not encrypted. Do not use this MVP on untrusted public networks. Anyone who can see the QR code or token during the valid session may attempt to upload to the receiving computer.
+Important boundary: local HTTP is not encrypted. Do not use this preview on untrusted public networks. Anyone who can see the QR code or token during the valid session may attempt to access the current transfer session.
+
+Desktop-to-phone outbox items exist only in memory for the current session. File download APIs do not expose local absolute paths and only serve files explicitly added to the outbox from the desktop app.
 
 See [docs/security-model.md](docs/security-model.md) for the full security model.
+
+## Phone Browser Download Notes
+
+For best desktop-to-phone download behavior, open the QR page in the phone's system browser, such as Android Chrome or iOS Safari.
+
+WeChat's in-app browser may block direct file downloads. If that happens, tap the top-right menu, choose to open the page in the system browser, and download there. DropLite also provides a `Copy download link` fallback. The copied link still contains the temporary session token and expires with the session.
+
+DropLite does not promise automatic saving to the phone photo gallery. Final save/open behavior is controlled by the phone browser and operating system.
+
+## Receive Folder
+
+Phone-to-desktop files are saved to `Downloads/DropLite` by default. In v0.2, the desktop app can change this folder, open it, or reset it to the default. The setting is stored locally on the computer and is not uploaded anywhere.
+
+Changing the receive folder affects only future phone-to-desktop files. It does not move existing files and does not affect desktop-to-phone outbox source files.
 
 ## Local Development
 
@@ -126,7 +134,7 @@ Install dependencies:
 npm install
 ```
 
-Run the desktop app in development. This mode is for contributors and debugging:
+Run the desktop app in development:
 
 ```bash
 npm run tauri:dev
@@ -152,20 +160,13 @@ Build the Tauri app:
 npm run tauri build
 ```
 
-Local builds generate installable desktop artifacts under `src-tauri/target/release/bundle/`. The v0.1.0 Preview build targets a Windows NSIS installer by default, usually under `src-tauri/target/release/bundle/nsis/`. MSI packaging is not enabled by default because it requires the WiX toolchain and can fail on first build if the WiX download times out.
+Local builds generate installable desktop artifacts under `src-tauri/target/release/bundle/`. The preview build targets a Windows NSIS installer by default, usually under `src-tauri/target/release/bundle/nsis/`. MSI packaging is not enabled by default because it requires the WiX toolchain and can fail on first build if the WiX download times out.
 
 Current local builds are not code signed and are not official releases. On Windows, the first run may show a security warning, and the firewall may ask whether to allow local network access. For DropLite's LAN workflow, allow private network access only on trusted networks.
 
 Do not commit build outputs from `dist/`, `build/`, `target/`, or installer folders.
 
 ## Tests
-
-Run Rust tests:
-
-```bash
-cd src-tauri
-cargo test
-```
 
 Run frontend tests:
 
@@ -179,17 +180,36 @@ Run frontend type checks:
 npm run typecheck
 ```
 
-The Rust tests cover token generation, token validation, token expiry, timestamp-based filename generation, filename sanitization, unique save path behavior, received item kinds, and upload size limits.
+Run Rust tests:
+
+```bash
+cd src-tauri
+cargo test
+```
+
+The test suite covers token handling, session expiry, filename safety, upload size limits, configurable receive folder behavior, outbox APIs, mobile receive rendering, download fallback behavior, and desktop drag-and-drop de-duplication.
+
+## Manual QA
+
+Before a v0.2 preview release, follow [docs/v0.2-manual-qa.md](docs/v0.2-manual-qa.md). It covers:
+
+- Windows private network setup.
+- Phone to desktop regression.
+- Desktop to phone regression.
+- System browser download behavior.
+- WeChat in-app browser limitations.
+- Refresh session and token expiry.
+- Receive folder configuration.
 
 ## Release Notes
 
-See [CHANGELOG.md](CHANGELOG.md) and [docs/release-notes-v0.1.0-preview.md](docs/release-notes-v0.1.0-preview.md).
+See [CHANGELOG.md](CHANGELOG.md), [docs/release-notes-v0.1.0-preview.md](docs/release-notes-v0.1.0-preview.md), and [docs/release-notes-v0.2.0-preview.md](docs/release-notes-v0.2.0-preview.md).
 
 ## Language
 
 DropLite currently supports English and Simplified Chinese. The desktop app follows the system or browser language by default, falls back to English, and lets the user switch language in the header. The selected language is stored locally in `localStorage`.
 
-The QR code includes a `lang` parameter so the phone upload page follows the desktop language. The phone page also has a small language selector.
+The QR code includes a `lang` parameter so the phone page follows the desktop language. The phone page also has a small language selector.
 
 ## File Naming
 
@@ -201,27 +221,11 @@ DropLite uses receive-time names by default:
 
 The prefix comes from MIME type or extension. The extension is taken from the original filename when reliable, then inferred from MIME type, then falls back to `.bin`. If multiple files arrive in the same second, DropLite increments the sequence and never overwrites existing files.
 
-## Manual Acceptance
-
-Before a release, verify the MVP with real devices:
-
-- Start DropLite with `npm run tauri:dev`.
-- Confirm the desktop app opens and shows a QR code.
-- Put the phone and computer on the same trusted Wi-Fi.
-- On Windows, set the current Wi-Fi network to Private and allow firewall access if prompted.
-- Scan the QR code from the phone and open the upload page.
-- Send text and confirm it appears in Recently received.
-- Send a JPG or PNG image and confirm the desktop list shows an image record and thumbnail.
-- Send a small MP4 video under 50 MB and confirm the saved video plays through completely.
-- Send a PDF or ZIP and confirm it appears as a file record and opens from the receive folder.
-- Send two files with the same name and confirm DropLite creates `file (1).ext` instead of overwriting.
-- Let the token expire and confirm uploads are rejected with a friendly message.
-
 ## FAQ
 
 ### Does DropLite upload my files to the cloud?
 
-No. The MVP starts a local HTTP server on the receiving computer. The phone sends data directly to that computer on the local network.
+No. DropLite starts a local HTTP server on the desktop. The phone sends data directly to that computer on the local network, and desktop-to-phone downloads also come from that local server.
 
 ### Do I need a phone app?
 
@@ -229,15 +233,11 @@ No. Scan the QR code and use the phone browser.
 
 ### Why does the session expire?
 
-The short-lived token limits accidental exposure. Use Refresh session on the desktop to generate a new QR code.
-
-### Where are files saved?
-
-By default, files are saved to `Downloads/DropLite`. If the downloads directory cannot be found, DropLite falls back to an app data directory.
+The short-lived token limits accidental exposure. Use `Refresh session` on the desktop to generate a new QR code.
 
 ### Is local HTTP encrypted?
 
-No. This MVP is intended for trusted local networks. Avoid public or untrusted Wi-Fi.
+No. This preview is intended for trusted local networks. Avoid public or untrusted Wi-Fi.
 
 ### My phone cannot open the QR link. What should I check?
 
@@ -247,29 +247,17 @@ Turn off VPNs on the phone and computer, then try again.
 
 On Windows, confirm the current Wi-Fi is set to Private network. If Windows Firewall asks whether to allow DropLite, allow access for private networks. Do not switch a public or untrusted Wi-Fi to Private just to use DropLite.
 
-DropLite 0.1 uses local-network HTTP, so it is not recommended on public or untrusted Wi-Fi.
+### Why does WeChat not download files directly?
 
-### Why does Send photo or Send video still open a file manager on my phone?
-
-DropLite uses standard browser file inputs. `Send photo` uses `accept="image/*"` and `Send video` uses `accept="video/*"`, which usually opens a gallery or media picker. Some browsers, embedded webviews, or chat-app browsers may still show a file manager. That behavior is controlled by the browser and operating system.
-
-### Why should the first upload work immediately?
-
-DropLite shows the QR code only after the local server is listening, and the phone upload page keeps upload buttons disabled until the session is confirmed. A success message means the desktop has already saved the file and created the received record.
-
-### My phone opens the QR page, but the first upload fails. What should I try?
-
-Check that Wi-Fi is stable, turn off VPNs, and scan a fresh QR code. If the issue is repeatable, please open an issue with the file type, phone browser, operating system, and any DropLite dev logs. Do not rely on repeated retries as the expected workflow.
+WeChat's in-app browser may block direct file downloads. Open the page in the system browser from WeChat's top-right menu, then download there. You can also copy the download link, but the link is temporary and expires with the session.
 
 ### Should I see `.part` files in the receive folder?
 
-No. DropLite may create hidden `.droplite-upload-*.part` files while an upload is in progress, but a successful upload is renamed to the final timestamped name, such as `image-YYYYMMDD-HHMMSS-001.jpg`, `video-YYYYMMDD-HHMMSS-001.mp4`, or `file-YYYYMMDD-HHMMSS-001.pdf`.
-
-If a `.part` file remains, the upload was interrupted or an earlier version hit a cleanup bug. Current builds remove temporary files when uploads fail because of size limits, token expiry, network interruption, or write errors.
+No. DropLite may create hidden `.droplite-upload-*.part` files while an upload is in progress, but a successful upload is renamed to the final timestamped name. Current builds remove temporary files when uploads fail because of size limits, token expiry, network interruption, or write errors.
 
 ### How should I report preview issues?
 
-Please include the DropLite version, Windows version, phone OS and browser, Wi-Fi or firewall notes, file type and size, whether the first upload succeeded, and the exact steps to reproduce the issue.
+Please include the DropLite version, Windows version, phone OS and browser, whether you used a system browser or WeChat, Wi-Fi or firewall notes, file type and size, and the exact steps to reproduce the issue.
 
 ## Roadmap
 

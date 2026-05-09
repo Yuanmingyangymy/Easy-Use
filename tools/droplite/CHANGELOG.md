@@ -1,5 +1,53 @@
 # DropLite Changelog
 
+## DropLite v0.2.0 Preview
+
+DropLite v0.2.0 Preview adds desktop-to-phone transfer on top of the existing phone-to-desktop flow, making DropLite a lightweight two-way local transfer tool.
+
+DropLite v0.2.0 Preview 在原有“手机传电脑”的基础上，新增“电脑传手机”，让 DropLite 成为一个轻量的本地双向临时投递工具。
+
+### Added
+
+- Desktop to phone transfer.
+- Send text from desktop to phone.
+- Send files from desktop to phone.
+- Drag files on desktop to send to phone.
+- Mobile `Receive from desktop` tab.
+- Copy desktop-sent text on phone.
+- Download desktop-sent files on phone.
+- Copy download link fallback.
+- WeChat in-app browser download guidance.
+- Configurable receive folder for phone-to-desktop files.
+- Receive folder persists across app restarts.
+- Mobile send/receive tab layout.
+
+### Improved
+
+- Mobile layout no longer stacks send and receive sections endlessly.
+- Outbox polling deduplicates items by id.
+- Desktop drag-and-drop avoids duplicate outbox records.
+- Download ack behavior is more conservative.
+- Windows receive folder path display no longer shows `\\?\` prefix.
+
+### Security and privacy
+
+- Still no account.
+- Still no cloud.
+- Still local network first.
+- Outbox APIs require session token.
+- Download APIs do not expose local absolute paths.
+- Refresh session invalidates old session-scoped data.
+- Receive folder config is local only.
+
+### Known limitations
+
+- WeChat in-app browser may block direct file downloads.
+- Use system browser for best phone download experience.
+- Local HTTP is not encrypted.
+- Public/untrusted Wi-Fi is not recommended.
+- App is not code signed yet.
+- Desktop-to-phone browser download behavior depends on mobile OS/browser.
+
 ## DropLite v0.1.0 Preview
 
 DropLite v0.1.0 Preview is the first usable preview release for sending text, photos, videos, and files from a phone browser to a desktop over the local network.

@@ -1,6 +1,6 @@
 [package]
 name = "droplite"
-version = "0.1.0"
+version = "0.2.0"
 description = "A local-first temporary drop tool for Easy-Use."
 authors = ["Easy-Use Contributors"]
 edition = "2021"

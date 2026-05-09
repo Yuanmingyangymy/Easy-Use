@@ -129,7 +129,7 @@ Those additions should remain optional and clearly explained to avoid turning Dr
 
 ## v0.2 Outbox Architecture: Desktop to Phone
 
-Status: Phase 1 backend model, Phase 2 desktop send UI, Phase 2.5 configurable receive folder, and Phase 3 mobile receive UI are implemented on the `feat/droplite-desktop-to-phone` branch. This is still v0.2 branch work and is not part of the v0.1.0 Preview release.
+Status: Phase 1 backend model, Phase 2 desktop send UI, Phase 2.5 configurable receive folder, Phase 3 mobile receive UI, and Phase 4 reliability/UX polish are implemented on the `feat/droplite-desktop-to-phone` branch. The branch is being prepared for v0.2.0 Preview and is not part of the v0.1.0 Preview release.
 
 The v0.2 approach keeps the existing local HTTP service and adds an in-memory desktop outbox. The desktop UI adds text or files to the Rust backend through Tauri commands, the phone page polls a token-protected outbox endpoint, and the phone can copy text or download files through token-protected routes.
 

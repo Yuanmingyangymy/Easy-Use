@@ -107,7 +107,7 @@ Potential upgrades:
 
 ## v0.2 Outbox Security Considerations
 
-Status: Phase 1 backend model, Phase 2 desktop send UI, Phase 2.5 configurable receive folder, and Phase 3 mobile receive UI implemented on the `feat/droplite-desktop-to-phone` branch. This remains unreleased v0.2 branch work.
+Status: Phase 1 backend model, Phase 2 desktop send UI, Phase 2.5 configurable receive folder, Phase 3 mobile receive UI, and Phase 4 reliability/UX polish are implemented on the `feat/droplite-desktop-to-phone` branch. This remains unreleased v0.2 branch work until merged, tagged, and published as a preview release.
 
 The v0.2 desktop-to-phone flow keeps the same Local-first / No account / No cloud boundary:
 

@@ -2,16 +2,18 @@
 
 ## Current Focus
 
-### DropLite v0.2 Development
+### DropLite v0.2 Preview Preparation
 
-DropLite v0.1.0 Preview has been released. DropLite v0.2 is now on a feature branch and will add desktop-to-phone transfer while preserving the local-first, no-account, no-cloud model.
+DropLite v0.1.0 Preview has been released. DropLite v0.2 is on a feature branch and is being prepared as a v0.2.0 Preview release. It adds desktop-to-phone transfer while preserving the local-first, no-account, no-cloud model.
 
 Current v0.2 status:
 
 - Phase 1 backend outbox model is implemented on the v0.2 branch.
 - Phase 2 desktop send UI is implemented on the v0.2 branch.
 - Phase 2.5 configurable receive folder is implemented on the v0.2 branch.
-- The mobile receive UI is still planned.
+- Phase 3 mobile receive UI is implemented on the v0.2 branch.
+- Phase 4 mobile download fallback and QA docs are implemented on the v0.2 branch.
+- Phase 5 v0.2.0 Preview release preparation is in progress.
 
 Active implementation notes live in [DropLite Plans](../tools/droplite/docs/PLANS.md). Codex project instructions live in [AGENTS.md](../AGENTS.md) and [DropLite AGENTS.md](../tools/droplite/AGENTS.md).
 
@@ -21,6 +23,8 @@ Planned v0.2 direction:
 - Desktop to phone file transfer.
 - Phone-side copy and download actions.
 - Token-protected local outbox.
+- Configurable phone-to-desktop receive folder.
+- WeChat/system-browser download guidance.
 - No cloud relay, account system, database, or permanent history.
 
 ### DropLite v0.1.0 Preview

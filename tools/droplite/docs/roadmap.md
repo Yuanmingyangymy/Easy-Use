@@ -17,9 +17,9 @@
 - Honest local HTTP security model.
 - Windows Preview build.
 
-## v0.2 Planned: Desktop to Phone Transfer
+## v0.2.0 Preview: Desktop to Phone Transfer
 
-Status: Phase 1 backend model, Phase 2 desktop send UI, Phase 2.5 configurable receive folder, and Phase 3 mobile receive UI implemented on the v0.2 feature branch. Phase 4 reliability and mobile download polish is in progress. Full v0.2 is not released yet.
+Status: release candidate preparation on the v0.2 feature branch. Full v0.2 is not released until the feature branch is reviewed, merged into `master`, tagged, and published as a GitHub pre-release.
 
 - Desktop to phone transfer.
 - In-memory outbox backend model.
@@ -31,12 +31,16 @@ Status: Phase 1 backend model, Phase 2 desktop send UI, Phase 2.5 configurable r
 - De-duplication for dragged files and phone outbox rendering.
 - Configurable receive folder for phone-to-desktop files.
 - Manual QA checklist for bidirectional regression and WeChat/system-browser download behavior.
-- Better receive and download flow on mobile.
-- More polished settings.
-- Optional keep original filename behavior.
-- Better onboarding and diagnostics.
+- Preview release notes and manual QA checklist.
 
 See [v0.2 desktop-to-phone design](v0.2-desktop-to-phone-design.md) and [v0.2 manual QA](v0.2-manual-qa.md).
+
+## v0.2.1 Possible Feedback Fixes
+
+- Fix issues reported from the v0.2.0 Preview.
+- Improve browser-specific download guidance.
+- Refine onboarding and diagnostics if testers find setup confusing.
+- Consider an optional keep-original-filename setting without turning DropLite into a complex settings app.
 
 ## v0.3
 

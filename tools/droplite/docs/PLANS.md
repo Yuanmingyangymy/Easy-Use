@@ -64,7 +64,7 @@ Summary:
 
 ### Phase 4: Reliability and Regression QA
 
-Status: in progress
+Status: implemented
 
 Summary:
 
@@ -79,7 +79,7 @@ Summary:
 
 ### Phase 5: v0.2 Preview Release
 
-Status: planned
+Status: in progress
 
 Summary:
 
@@ -88,6 +88,9 @@ Summary:
 - Installer validation.
 - Release notes.
 - Tag and GitHub Release.
+- Version metadata is being aligned to `0.2.0`.
+- v0.2 changelog and preview release notes are being prepared.
+- Feature branch validation should pass before opening a PR into `master`.
 
 ## Do Not Do In v0.2
 
