@@ -129,9 +129,9 @@ Those additions should remain optional and clearly explained to avoid turning Dr
 
 ## v0.2 Outbox Architecture: Desktop to Phone
 
-Status: Phase 1 backend model and Phase 2 desktop send UI implemented on the `feat/droplite-desktop-to-phone` branch. The mobile receive UI is still not implemented.
+Status: Phase 1 backend model, Phase 2 desktop send UI, Phase 2.5 configurable receive folder, and Phase 3 mobile receive UI are implemented on the `feat/droplite-desktop-to-phone` branch. This is still v0.2 branch work and is not part of the v0.1.0 Preview release.
 
-The v0.2 approach keeps the existing local HTTP service and adds an in-memory desktop outbox. Future desktop UI work will add text or files to the Rust backend, the phone page will poll a token-protected outbox endpoint, and the phone will copy text or download files through token-protected routes.
+The v0.2 approach keeps the existing local HTTP service and adds an in-memory desktop outbox. The desktop UI adds text or files to the Rust backend through Tauri commands, the phone page polls a token-protected outbox endpoint, and the phone can copy text or download files through token-protected routes.
 
 Planned flow:
 
@@ -162,6 +162,15 @@ Desktop UI integration:
 - `add_outbox_file` adds file paths selected by the native Tauri dialog or received from Tauri file drop events.
 - `list_outbox_items` lets the desktop panel show the current memory-only outbox.
 - File paths are used only as command inputs and backend references. The rendered outbox list shows display names, type, size, time, and status, but not absolute paths.
+
+Mobile UI integration:
+
+- The mobile page keeps the existing `Send to desktop` upload controls.
+- A `Receive from desktop` section polls `GET /api/outbox?token=...` about every 1.5 seconds while the page is visible.
+- Text items render as copyable cards. Copying text calls `POST /api/outbox/:id/ack?token=...`.
+- File, image, and video items render as download cards. Download uses `GET /api/outbox/:id/download?token=...` and then acknowledges the item.
+- The phone page uses item ids and the session token only. It never receives or displays desktop absolute paths.
+- If the token expires, polling stops and the page shows the session expired state.
 
 Polling is preferred over WebSocket for v0.2 because it is simpler, broadly compatible with phone browsers, easier to debug, and less likely to destabilize the v0.1 upload path. A future version can revisit WebSocket if the product need becomes clear.
 

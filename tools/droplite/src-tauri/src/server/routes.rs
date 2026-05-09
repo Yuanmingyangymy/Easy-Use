@@ -684,6 +684,17 @@ mod tests {
             Err(AppError::TokenInvalid)
         ));
     }
+
+    #[test]
+    fn mobile_upload_page_includes_desktop_receive_flow() {
+        assert!(MOBILE_UPLOAD_HTML.contains("Receive from desktop"));
+        assert!(MOBILE_UPLOAD_HTML.contains("/api/outbox?token="));
+        assert!(MOBILE_UPLOAD_HTML.contains("/download?token="));
+        assert!(MOBILE_UPLOAD_HTML.contains("/ack?token="));
+        assert!(MOBILE_UPLOAD_HTML.contains("fetchOutbox"));
+        assert!(MOBILE_UPLOAD_HTML.contains("copyOutboxText"));
+        assert!(MOBILE_UPLOAD_HTML.contains("downloadOutboxFile"));
+    }
 }
 
 const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
@@ -716,6 +727,18 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
       .ok { background: #e9f6ed; color: #1f6b3d; }
       .error { background: #fff1ed; color: #8d2f24; }
       .muted { color: #64766b; font-size: .9rem; margin-top: 8px; }
+      .section-title-row { align-items: center; display: flex; gap: 10px; justify-content: space-between; }
+      .section-title-row label { margin-bottom: 0; }
+      .pill { background: #eef4ee; border-radius: 999px; color: #17352b; font-size: .78rem; font-weight: 700; padding: 5px 9px; white-space: nowrap; }
+      .outbox-list { display: grid; gap: 10px; margin-top: 12px; }
+      .desktop-item { border: 1px solid #e1e8e2; border-radius: 8px; padding: 12px; }
+      .desktop-item-header { align-items: flex-start; display: flex; gap: 10px; justify-content: space-between; }
+      .desktop-item-title { color: #17352b; font-weight: 800; overflow-wrap: anywhere; }
+      .desktop-item-kind { color: #64766b; font-size: .82rem; font-weight: 700; text-transform: uppercase; }
+      .desktop-item-meta { color: #64766b; font-size: .86rem; margin-top: 4px; overflow-wrap: anywhere; }
+      .desktop-item-content { background: #f7faf7; border-radius: 8px; color: #253c32; margin: 10px 0; padding: 10px; white-space: pre-wrap; word-break: break-word; }
+      .desktop-item-actions { display: flex; gap: 8px; margin-top: 10px; }
+      .desktop-item-actions button { min-height: 40px; width: auto; }
     </style>
   </head>
   <body>
@@ -755,6 +778,15 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         <input id="fileInput" type="file" multiple />
         <p class="muted" data-i18n="localOnly">Local network only. No cloud upload.</p>
       </section>
+
+      <section aria-labelledby="receiveDesktopTitle">
+        <div class="section-title-row">
+          <label id="receiveDesktopTitle" data-i18n="receiveFromDesktop">Receive from desktop</label>
+          <span class="pill" data-i18n="sentFromDesktop">Sent from desktop</span>
+        </div>
+        <p id="outboxStatus" class="muted" data-i18n="waitingForDesktopItems">Waiting for desktop items</p>
+        <div id="outboxList" class="outbox-list"></div>
+      </section>
     </main>
 
     <script>
@@ -784,7 +816,22 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
           sent: "Sent successfully",
           sentCount: "Sent {count} file(s) successfully",
           sendFailed: "Send failed.",
-          uploadFailed: "Upload failed."
+          uploadFailed: "Upload failed.",
+          receiveFromDesktop: "Receive from desktop",
+          noItemsFromDesktopYet: "No items from desktop yet",
+          copyText: "Copy text",
+          copied: "Copied",
+          download: "Download",
+          downloading: "Downloading",
+          downloadStarted: "Download started",
+          failedToLoadDesktopItems: "Failed to load desktop items",
+          failedToDownloadFile: "Failed to download file",
+          sentFromDesktop: "Sent from desktop",
+          waitingForDesktopItems: "Waiting for desktop items",
+          textItem: "Text",
+          imageItem: "Image",
+          videoItem: "Video",
+          fileItem: "File"
         },
         "zh-CN": {
           title: "投递到这台电脑",
@@ -809,7 +856,22 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
           sent: "发送成功",
           sentCount: "已成功发送 {count} 个文件",
           sendFailed: "发送失败。",
-          uploadFailed: "上传失败。"
+          uploadFailed: "上传失败。",
+          receiveFromDesktop: "从电脑接收",
+          noItemsFromDesktopYet: "暂无来自电脑的内容",
+          copyText: "复制文字",
+          copied: "已复制",
+          download: "下载",
+          downloading: "下载中",
+          downloadStarted: "已开始下载",
+          failedToLoadDesktopItems: "加载电脑内容失败",
+          failedToDownloadFile: "文件下载失败",
+          sentFromDesktop: "来自电脑",
+          waitingForDesktopItems: "等待电脑发送内容",
+          textItem: "文字",
+          imageItem: "图片",
+          videoItem: "视频",
+          fileItem: "文件"
         }
       };
       let language = normalizeLanguage(params.get("lang") || navigator.language || "en");
@@ -827,9 +889,14 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
       const sendFile = document.getElementById("sendFile");
       const languageSelect = document.getElementById("languageSelect");
       const dropZone = document.getElementById("dropZone");
+      const outboxList = document.getElementById("outboxList");
+      const outboxStatus = document.getElementById("outboxStatus");
       let maxUploadBytes = Number.POSITIVE_INFINITY;
       let sessionReady = false;
       let uploadPending = false;
+      let outboxItems = [];
+      let outboxPollTimer = null;
+      let lastOutboxError = "";
 
       function devLog(message) {
         if (new URLSearchParams(location.search).get("debug") === "1") console.debug("[droplite]", message);
@@ -854,6 +921,7 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
           node.setAttribute("placeholder", t(node.getAttribute("data-i18n-placeholder")));
         });
+        renderOutbox();
       }
 
       function setStatus(message, type) {
@@ -866,6 +934,192 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + " MB";
         if (bytes >= 1024) return (bytes / 1024).toFixed(1) + " KB";
         return bytes + " B";
+      }
+
+      function formatItemTime(value) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "";
+        return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+
+      function labelForOutboxKind(kind) {
+        if (kind === "image") return t("imageItem");
+        if (kind === "video") return t("videoItem");
+        if (kind === "file") return t("fileItem");
+        return t("textItem");
+      }
+
+      function setOutboxStatus(message, isError) {
+        outboxStatus.textContent = message;
+        outboxStatus.className = isError ? "muted error" : "muted";
+      }
+
+      function renderOutbox() {
+        if (!outboxList || !outboxStatus) return;
+        outboxList.textContent = "";
+
+        if (outboxItems.length === 0) {
+          setOutboxStatus(t("noItemsFromDesktopYet"), false);
+          return;
+        }
+
+        setOutboxStatus(t("sentFromDesktop"), false);
+        for (const item of outboxItems) {
+          const card = document.createElement("article");
+          card.className = "desktop-item";
+
+          const header = document.createElement("div");
+          header.className = "desktop-item-header";
+
+          const title = document.createElement("div");
+          title.className = "desktop-item-title";
+          title.textContent = item.kind === "text" ? t("sentFromDesktop") : item.displayName || t("fileItem");
+
+          const kind = document.createElement("span");
+          kind.className = "desktop-item-kind";
+          kind.textContent = labelForOutboxKind(item.kind);
+
+          header.append(title, kind);
+          card.append(header);
+
+          const metaParts = [];
+          if (item.mimeType) metaParts.push(item.mimeType);
+          if (typeof item.sizeBytes === "number") metaParts.push(formatBytes(item.sizeBytes));
+          if (item.createdAt) metaParts.push(formatItemTime(item.createdAt));
+          if (metaParts.length > 0) {
+            const meta = document.createElement("p");
+            meta.className = "desktop-item-meta";
+            meta.textContent = metaParts.join(" | ");
+            card.append(meta);
+          }
+
+          const actions = document.createElement("div");
+          actions.className = "desktop-item-actions";
+
+          if (item.kind === "text") {
+            const content = document.createElement("p");
+            content.className = "desktop-item-content";
+            content.textContent = item.content || "";
+            card.append(content);
+
+            const copyButton = document.createElement("button");
+            copyButton.type = "button";
+            copyButton.textContent = t("copyText");
+            copyButton.addEventListener("click", () => copyOutboxText(item, copyButton));
+            actions.append(copyButton);
+          } else {
+            const downloadButton = document.createElement("button");
+            downloadButton.type = "button";
+            downloadButton.textContent = t("download");
+            downloadButton.addEventListener("click", () => downloadOutboxFile(item, downloadButton));
+            actions.append(downloadButton);
+          }
+
+          card.append(actions);
+          outboxList.append(card);
+        }
+      }
+
+      async function fetchOutbox() {
+        if (!token || !sessionReady || document.hidden) return;
+
+        try {
+          const response = await fetch("/api/outbox?token=" + encodeURIComponent(token));
+          if (response.status === 401) {
+            handleExpiredSession();
+            return;
+          }
+          if (!response.ok) throw new Error(t("failedToLoadDesktopItems"));
+          const data = await response.json();
+          outboxItems = Array.isArray(data.items) ? data.items : [];
+          lastOutboxError = "";
+          renderOutbox();
+        } catch (error) {
+          const message = error && error.message ? error.message : t("failedToLoadDesktopItems");
+          if (lastOutboxError !== message) {
+            lastOutboxError = message;
+            setOutboxStatus(message, true);
+          }
+        }
+      }
+
+      function startOutboxPolling() {
+        if (outboxPollTimer) window.clearInterval(outboxPollTimer);
+        void fetchOutbox();
+        outboxPollTimer = window.setInterval(() => void fetchOutbox(), 1500);
+      }
+
+      function stopOutboxPolling() {
+        if (outboxPollTimer) {
+          window.clearInterval(outboxPollTimer);
+          outboxPollTimer = null;
+        }
+      }
+
+      function handleExpiredSession() {
+        sessionReady = false;
+        sessionText.textContent = t("sessionExpired");
+        setStatus(t("sessionExpired"), "error");
+        setOutboxStatus(t("sessionExpired"), true);
+        disableUploads(true);
+        stopOutboxPolling();
+      }
+
+      async function acknowledgeOutboxItem(id) {
+        const response = await fetch("/api/outbox/" + encodeURIComponent(id) + "/ack?token=" + encodeURIComponent(token), {
+          method: "POST"
+        });
+        if (response.status === 401) {
+          handleExpiredSession();
+          return false;
+        }
+        return response.ok;
+      }
+
+      async function copyOutboxText(item, button) {
+        try {
+          await writeClipboardText(item.content || "");
+          button.textContent = t("copied");
+          await acknowledgeOutboxItem(item.id);
+          void fetchOutbox();
+        } catch (_) {
+          setOutboxStatus(t("sendFailed"), true);
+        }
+      }
+
+      async function downloadOutboxFile(item, button) {
+        try {
+          button.textContent = t("downloading");
+          const link = document.createElement("a");
+          link.href = "/api/outbox/" + encodeURIComponent(item.id) + "/download?token=" + encodeURIComponent(token);
+          link.download = item.displayName || "";
+          link.rel = "noopener";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          await acknowledgeOutboxItem(item.id);
+          button.textContent = t("downloadStarted");
+          void fetchOutbox();
+        } catch (_) {
+          button.textContent = t("download");
+          setOutboxStatus(t("failedToDownloadFile"), true);
+        }
+      }
+
+      async function writeClipboardText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+        const node = document.createElement("textarea");
+        node.value = text;
+        node.setAttribute("readonly", "true");
+        node.style.position = "fixed";
+        node.style.left = "-9999px";
+        document.body.appendChild(node);
+        node.select();
+        document.execCommand("copy");
+        node.remove();
       }
 
       function uploadNameFor(file) {
@@ -911,17 +1165,15 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
 
       async function checkSession() {
         if (!token) {
-          sessionText.textContent = t("sessionExpired");
-          disableUploads(true);
+          handleExpiredSession();
           return;
         }
 
         const response = await fetch("/api/session?token=" + encodeURIComponent(token));
         const data = await response.json();
         if (!data.valid) {
-          sessionText.textContent = t("sessionExpired");
-          setStatus(data.reason || t("sessionExpired"), "error");
-          disableUploads(true);
+          handleExpiredSession();
+          if (data.reason) setStatus(data.reason, "error");
           return;
         }
 
@@ -930,6 +1182,7 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         sessionText.textContent = t("connected", { device: data.device_name, time: expiresAt });
         sessionReady = true;
         disableUploads(false);
+        startOutboxPolling();
         devLog("session ready");
       }
 
@@ -1052,6 +1305,9 @@ const MOBILE_UPLOAD_HTML: &str = r#"<!doctype html>
         dropZone.classList.remove("dragging");
       }));
       dropZone.addEventListener("drop", (event) => uploadFiles(event.dataTransfer.files));
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) void fetchOutbox();
+      });
 
       applyLanguage();
       disableUploads(true);

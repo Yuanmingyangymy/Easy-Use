@@ -107,7 +107,7 @@ Potential upgrades:
 
 ## v0.2 Outbox Security Considerations
 
-Status: Phase 1 backend model and Phase 2 desktop send UI implemented on the `feat/droplite-desktop-to-phone` branch. The mobile receive UI is still not implemented.
+Status: Phase 1 backend model, Phase 2 desktop send UI, Phase 2.5 configurable receive folder, and Phase 3 mobile receive UI implemented on the `feat/droplite-desktop-to-phone` branch. This remains unreleased v0.2 branch work.
 
 The v0.2 desktop-to-phone flow keeps the same Local-first / No account / No cloud boundary:
 
@@ -117,11 +117,13 @@ The v0.2 desktop-to-phone flow keeps the same Local-first / No account / No clou
 - Files must come from explicit desktop user actions, such as choosing a file or dragging it into DropLite.
 - Adding outbox items is available only through Tauri commands inside the desktop app, not through a LAN HTTP endpoint.
 - The phone-side HTTP API can list, download, and acknowledge outbox items with a valid token, but it cannot add new outbox items.
+- The mobile receive UI only calls list, download, and ack endpoints. It does not expose any route for adding desktop outbox content from the LAN.
 - The backend stores safe server-side references and never exposes arbitrary local paths to the phone.
 - The desktop outbox panel also renders only display names and metadata, not local absolute paths.
 - Download endpoints resolve only files registered in the current in-memory outbox.
 - Filenames used for downloads are sanitized before being placed in `Content-Disposition`.
 - Text sent to the phone should remain memory-only and should disappear when the app closes or the session is refreshed.
+- Mobile copy and download actions acknowledge items after the user action. Acknowledgement updates in-memory status only; it is not a persistent history store.
 - v0.2 should not add accounts, cloud relay, tracking, a database, or permanent transfer history.
 
 The transport would still be local-network HTTP in v0.2. It remains inappropriate for public or untrusted Wi-Fi unless a future version adds stronger transport security.

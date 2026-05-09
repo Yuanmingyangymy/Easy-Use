@@ -15,6 +15,7 @@ export const en = {
   sendPhoto: "Send photo",
   sendVideo: "Send video",
   sendFile: "Send file",
+  sendToDesktop: "Send to desktop",
   selectPhotoFiles: "Select photo files",
   selectVideoFiles: "Select video files",
   selectFiles: "Select files",
@@ -62,5 +63,15 @@ export const en = {
   sendToPhoneDescription:
     "Send text or files to the connected phone. The phone will be able to copy or download them in this session.",
   mobileReceiveComingNext: "Desktop-to-phone receive UI is coming next.",
-  downloaded: "Downloaded"
+  downloaded: "Downloaded",
+  receiveFromDesktop: "Receive from desktop",
+  noItemsFromDesktopYet: "No items from desktop yet",
+  copied: "Copied",
+  download: "Download",
+  downloading: "Downloading",
+  downloadStarted: "Download started",
+  failedToLoadDesktopItems: "Failed to load desktop items",
+  failedToDownloadFile: "Failed to download file",
+  sentFromDesktop: "Sent from desktop",
+  waitingForDesktopItems: "Waiting for desktop items"
 } as const;

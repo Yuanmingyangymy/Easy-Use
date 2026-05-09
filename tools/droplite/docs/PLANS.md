@@ -50,7 +50,7 @@ Summary:
 
 ### Phase 3: Mobile Receive UI
 
-Status: planned
+Status: implemented
 
 Summary:
 

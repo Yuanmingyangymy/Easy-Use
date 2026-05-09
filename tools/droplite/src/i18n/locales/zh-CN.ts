@@ -15,6 +15,7 @@ export const zhCN = {
   sendPhoto: "发送图片",
   sendVideo: "发送视频",
   sendFile: "发送文件",
+  sendToDesktop: "发送到电脑",
   selectPhotoFiles: "选择图片文件",
   selectVideoFiles: "选择视频文件",
   selectFiles: "选择文件",
@@ -60,5 +61,15 @@ export const zhCN = {
   desktopToPhonePreview: "电脑传手机功能正在预览中",
   sendToPhoneDescription: "将文字或文件发送到已连接的手机。手机可在当前会话中复制或下载。",
   mobileReceiveComingNext: "手机端接收界面将在下一阶段完成。",
-  downloaded: "已下载"
+  downloaded: "已下载",
+  receiveFromDesktop: "从电脑接收",
+  noItemsFromDesktopYet: "暂无来自电脑的内容",
+  copied: "已复制",
+  download: "下载",
+  downloading: "下载中",
+  downloadStarted: "已开始下载",
+  failedToLoadDesktopItems: "加载电脑内容失败",
+  failedToDownloadFile: "文件下载失败",
+  sentFromDesktop: "来自电脑",
+  waitingForDesktopItems: "等待电脑发送内容"
 } as const;
